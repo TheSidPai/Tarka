@@ -1,0 +1,52 @@
+/* 1. Initialize Tailwind v4 */
+@import "tailwindcss";
+
+/* 2. Configure Tailwind content paths & custom theme variables */
+@theme {
+  /* Tailwind v4 automatically scans your src folder, but you can explicitly source it like this: */
+  --source: "./src/**/*.{js,jsx}"; 
+}
+
+/* 3. Your App's Custom Variables and Themes */
+:root[data-theme="dark"] {
+  --bg-primary: #0e0e0e;
+  --bg-secondary: #1a1a1a;
+  --text-primary: #f0f0f0;
+  --text-secondary: #a0a0a0;
+  --border: #2a2a2a;
+  --consensus-bg: #0d1f14;
+  --consensus-border: #1a4a2a;
+  --contradiction-bg: #1f0d0d;
+  --contradiction-border: #4a1a1a;
+  --accent: #f0f0f0;
+  --card-bg: #141414;
+}
+
+:root[data-theme="light"] {
+  --bg-primary: #fafafa;
+  --bg-secondary: #f0f0f0;
+  --text-primary: #0e0e0e;
+  --text-secondary: #606060;
+  --border: #e0e0e0;
+  --consensus-bg: #f0faf4;
+  --consensus-border: #a8d5b5;
+  --contradiction-bg: #fdf0f0;
+  --contradiction-border: #d5a8a8;
+  --accent: #0e0e0e;
+  --card-bg: #ffffff;
+}
+
+/* 4. Global CSS Overrides */
+* { 
+  box-sizing: border-box; 
+  margin: 0; 
+  padding: 0; 
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  transition: background 0.2s, color 0.2s;
+}
