@@ -1,0 +1,14 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tarka-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env  # Crucial: Passes your Anthropic & Tavily API keys into the container
+    restart: unless-stopped

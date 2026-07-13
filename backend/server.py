@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import uvicorn
+import time
 
 # Import your graph builder
 from graph.graph import build_graph
@@ -36,6 +37,7 @@ async def run_research_stream(request: ResearchRequest):
     Executes the LangGraph pipeline and yields JSON updates after every node.
     """
     # Initialize the required state 
+    now = time.time()
     initial_state = {
         "query": request.query,
         "web_results": request.previous_web_results,
@@ -72,7 +74,8 @@ async def run_research_stream(request: ResearchRequest):
 
                 # Small sleep to ensure the stream flushes smoothly
                 await asyncio.sleep(0.1)
-                
+
+        print("Time taken for research: {:.2f} seconds".format(time.time() - now))    
         # Tell the frontend to close the connection
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 

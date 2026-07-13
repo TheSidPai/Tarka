@@ -15,7 +15,7 @@ class TarkaResponseSchema(BaseModel):
     consensus: List[dict] = Field(description="The list of consensus objects passed from the state.")
     contradictions: List[dict] = Field(description="The list of contradiction objects passed from the state.")
     source_count: SourceCountModel = Field(description="Breakdown of how many sources were integrated.")
-    suggested_followups: List[str] = Field(default_factory=list, description="2-3 natural, highly granular follow-up questions generated dynamically based on the specific contradictions and consensus found.")
+    suggested_followups: List[str] = Field(default_factory=list, description="2-3 natural follow-up questions generated dynamically based on the specific contradictions and consensus found.")
 
 # --- LLM INITIALIZATION ---
 base_llm = ChatAnthropic(
@@ -44,7 +44,9 @@ def synthesizer_node(state: TarkaState) -> dict:
         "Your sole task is to take pre-calculated research metrics and format them into the requested schema.\n"
         "CRITICAL INSTRUCTIONS:\n"
         "1. Map the consensus, contradictions, and summary data exactly as provided without changing their meaning or text.\n"
-        "2. Analyze the contradictions and consensus arrays. Generate 2 to 3 organic, smart, highly specific follow-up questions that would help a user investigate the core disagreements and alignments further."
+        "2. You MUST generate exactly 3 follow-up questions in 'suggested_followups'. This field is never optional.\n"
+        "3. Follow-up questions must be specific to the actual findings — not generic. Reference specific claims, papers, or contradictions found in the data.\n"
+        "4. If consensus and contradictions are both empty, generate follow-up questions that would help find better sources or reframe the query.\n"
     )
 
     human_payload = (

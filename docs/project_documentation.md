@@ -1047,3 +1047,41 @@ Three-part change:
 ## What's Next (Day 10)
 
 README metrics filled in, Mermaid architecture diagram finalised, Docker setup, and demo preparation — three curated queries that show Tarka at its best.
+
+```mermaid
+graph TD
+    %% Node Styles
+    classDef startEnd fill:#1A1A1A,stroke:#333,stroke-width:2px,color:#FFF,rx:10px,ry:10px;
+    classDef mainNode fill:#2C2C2C,stroke:#444,stroke-width:1px,color:#FFF,rx:5px,ry:5px;
+    classDef router fill:#382B14,stroke:#D97706,stroke-width:2px,color:#FDE68A,rx:5px,ry:5px;
+    classDef stream fill:#1E3A8A,stroke:#3B82F6,stroke-width:2px,color:#DBEAFE,rx:5px,ry:5px,stroke-dasharray: 5 5;
+
+    %% Nodes
+    S((START)):::startEnd
+    E((END)):::startEnd
+    
+    O{Orchestrator\nRoute Decision}:::router
+    
+    WS[Web Scout\nTavily API]:::mainNode
+    PS[Paper Scout\nArXiv API]:::mainNode
+    C[Critic\nXML + Regex]:::mainNode
+    Syn[Synthesizer\nStructured Output]:::mainNode
+    
+    FE((React UI\nSSE Listener)):::stream
+
+    %% Edges
+    S --> O
+    O -- "needs_fetch=True" --> WS
+    O -- "needs_fetch=False" --> C
+    
+    WS --> PS
+    PS --> C
+    C --> Syn
+    Syn --> E
+
+    %% Streaming Event Lines (Invisible to execution, visible for concept)
+    WS -. "yields status" .-> FE
+    PS -. "yields status" .-> FE
+    C -. "yields status" .-> FE
+    Syn -. "yields final_payload" .-> FE
+```

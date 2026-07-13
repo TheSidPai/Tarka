@@ -6,7 +6,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 # --- LLM INITIALIZATION ---
 base_llm = ChatAnthropic(
     model="claude-haiku-4-5-20251001", # type: ignore
-    temperature=0.3
+    temperature=0.4
 ) # type: ignore
 
 # --- HELPER PARSER FUNCTION ---
