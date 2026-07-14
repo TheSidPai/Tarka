@@ -305,12 +305,6 @@ def orchestrator_node(state: TarkaState) -> dict:
 #### Routing Function + Graph Update — `backend/graph/graph.py`
 
 ```python
-from langgraph.graph import StateGraph, START, END
-from graph.state import TarkaState
-from agents.orchestrator import orchestrator_node
-from agents.web_scout import web_scout_node
-from agents.paper_scout import paper_scout_node
-
 def route_after_orchestrator(state: TarkaState) -> str:
     return "fetch" if state["needs_fetch"] else "skip"
 
@@ -441,66 +435,7 @@ Key decisions:
 
 #### Critic Node — `backend/agents/critic_two_pass.py`
 
-```python
-import re
-from langchain_anthropic import ChatAnthropic
-from graph.state import TarkaState
-from langchain_core.messages import SystemMessage, HumanMessage
 
-base_llm = ChatAnthropic(model="claude-haiku-4-5-20251001", temperature=0.3)
-
-def extract_tag(text: str, tag: str) -> str:
-    match = re.search(f"<{tag}>(.*?)</{tag}>", text, re.DOTALL | re.IGNORECASE)
-    return match.group(1).strip() if match else "N/A"
-
-def critic_two_pass_node(state: TarkaState) -> dict:
-    user_query = state["query"]
-    web_data = state.get("web_results", [])
-    paper_data = state.get("paper_results", [])
-
-    messages = [
-        SystemMessage(content=system_instruction),  # full prompt as above
-        HumanMessage(content=(
-            f"Target Question: '{user_query}'\n\n"
-            f"--- WEB SOURCES ---\n{web_data}\n\n"
-            f"--- ACADEMIC PAPERS ---\n{paper_data}\n\n"
-            "Generate the tag-based analysis now."
-        ))
-    ]
-
-    raw_xml = base_llm.invoke(messages).content
-    clean_xml = raw_xml.replace("```xml", "").replace("```", "").strip()
-
-    overall_summary = extract_tag(clean_xml, "summary")
-
-    consensus_list = []
-    for block in re.findall(r"<consensus_point>(.*?)</consensus_point>", clean_xml, re.DOTALL):
-        consensus_list.append({
-            "point": extract_tag(block, "point"),
-            "web_quote": extract_tag(block, "web_quote"),
-            "paper_quote": extract_tag(block, "paper_quote"),
-            "source_url": extract_tag(block, "source_url"),
-            "source_paper_id": extract_tag(block, "source_paper_id")
-        })
-
-    contradiction_list = []
-    for block in re.findall(r"<contradiction_point>(.*?)</contradiction_point>", clean_xml, re.DOTALL):
-        contradiction_list.append({
-            "conflict_topic": extract_tag(block, "conflict_topic"),
-            "web_claim": extract_tag(block, "web_claim"),
-            "web_quote": extract_tag(block, "web_quote"),
-            "source_url": extract_tag(block, "source_url"),
-            "paper_claim": extract_tag(block, "paper_claim"),
-            "paper_quote": extract_tag(block, "paper_quote"),
-            "source_paper_id": extract_tag(block, "source_paper_id")
-        })
-
-    return {
-        "overall_summary": overall_summary,
-        "consensus": consensus_list,
-        "contradictions": contradiction_list
-    }
-```
 
 #### Graph Update — `backend/graph/graph.py`
 
@@ -1085,3 +1020,136 @@ graph TD
     C -. "yields status" .-> FE
     Syn -. "yields final_payload" .-> FE
 ```
+
+# Tarka — Day 10: Documentation, Packaging & Demo Prep
+
+## What Day 10 Is About
+
+The system works. Day 10 is about making it presentable — the kind of project that someone can clone, read the README, understand what was built and why, and run it in two commands. It's also about preparing to talk about it confidently, which matters as much as the code itself.
+
+---
+
+## What Was Done
+
+**README finalized.** The core narrative — why Tarka exists, what problem it solves, how it solves it architecturally — was written to hold up under interview questioning. Not a feature list, an argument. The "Why it exists" section explains schema fatigue and why the naive approach breaks, which is the kind of technical depth that separates a portfolio project from a tutorial clone.
+
+**Metrics table filled in.** Five days after recording the Day 1-2 baseline, real numbers from three verified queries were added:
+
+| Query | Cold Latency | Follow-up Latency |
+|---|---|---|
+| Standing desks improve productivity | 22.52s | 19.41s |
+| Intermittent fasting for weight loss | 21.83s | 16.99s |
+| Social media causes teen depression | 22.93s | 14.84s |
+
+Average cold: **22.42s**. Average follow-up: **17.08s**. The ~5s reduction directly validates the Orchestrator routing — scouts skipped, latency drops by the exact amount of two sequential network calls.
+
+**Mermaid architecture diagram finalized.** Reflects the actual built system — five nodes, conditional edges, SSE stream to React frontend. The diagram matches what was built, not the original plan.
+
+**Docker packaging.** `Dockerfile` in `backend/` and `docker-compose.yml` at root. Backend spins up in one command — `docker compose up -d --build`. API keys loaded from `.env` via `env_file`. Frontend runs locally via `npm run dev` — no containerization needed for a portfolio demo.
+
+**Demo guide written** (`DEMO.md`). Five-step walkthrough using the social media query — the best demo candidate because it produced contradictions on both the original and follow-up run. Steps cover: the hook, SSE streaming transparency, consensus cards, the contradiction moment, and the follow-up memory loop.
+
+**Screenshots added** to `assets/` folder covering each demo step — landing page, live stream, consensus, contradictions, follow-up chips.
+
+**Honest limitations documented.** Four specific trade-offs called out in the README: ephemeral session memory, sequential scouting, no auth or rate limiting, desktop-first UI. Each one explained technically, not apologetically.
+
+---
+
+## The Demo Query
+
+**"Does social media use cause depression in teenagers?"**
+
+Chosen because:
+- Web sources treat it as settled fact
+- Academic literature shows the effect size is small and heavily contested
+- Produced contradictions on both the original query and the follow-up
+- The follow-up actually surfaced *more* contradictions than the original — a strong live demo moment
+
+Run this query before every demo. Verify output. Don't demo blind.
+
+---
+
+## What to Say in an Interview
+
+**If asked "why not just use ChatGPT for this?"**
+ChatGPT gives you one answer. Tarka shows you where sources disagree and why. The value isn't the answer — it's the structured disagreement.
+
+**If asked "why XML and regex instead of structured output?"**
+`with_structured_output()` failed silently under load — the model would populate a summary field and leave the arrays empty. XML generation decouples thinking from formatting. The model reasons freely, the parser extracts deterministically. More robust, easier to debug.
+
+**If asked "what would you build next?"**
+Parallel scout execution — web and paper running simultaneously would cut cold latency from ~22s to ~15s. Persistent session memory via Redis. Full-text paper ingestion instead of abstracts only.
+
+**If asked "does something like this already exist?"**
+Yes — Elicit, Consensus, Perplexity. The point wasn't to build something novel, it was to understand the architecture. I can now explain exactly where these systems fail and why.
+
+---
+
+## Honest Notes
+
+- The project drifted from the original 10-day plan — Day 4 (Critic) took two days due to structured output reliability issues. The solution found (XML + regex) is arguably better than the original plan.
+- Three API sources were tried for academic papers — ArXiv (flaky, 503s), Semantic Scholar (429s before key arrived), OpenAlex (reliable, no key needed). OpenAlex is the current default.
+- `with_structured_output()` was used successfully in the Synthesizer but abandoned in the Critic. The distinction: the Synthesizer formats pre-structured data, the Critic reasons and formats simultaneously. The latter is where it breaks.
+
+---
+
+## Final Project State
+
+```
+tarka/
+├── backend/
+│   ├── agents/
+│   │   ├── orchestrator.py
+│   │   ├── web_scout.py
+│   │   ├── paper_scout_open_alex.py
+│   │   ├── critic_twopass.py
+│   │   └── synthesizer.py
+│   ├── graph/
+│   │   ├── state.py
+│   │   └── graph.py
+│   ├── server.py
+│   ├── main.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── SearchBar.jsx
+│   │   │   ├── StatusBar.jsx
+│   │   │   ├── SynthesisPanel.jsx
+│   │   │   └── FollowUpChips.jsx
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
+│   └── package.json
+├── docs/
+│   ├── project_overview_and_day1.md
+│   ├── project_timeline.md
+│   ├── docs_day2.md
+│   ├── docs_day3.md  
+│   ├── docs_day4.md
+│   ├── docs_day5.md
+│   ├── docs_day7.md
+│   ├── docs_day8.md
+│   ├── docs_day9.md
+│   └── docs_day10.md
+├── assets/
+├── docker-compose.yml
+├── DEMO.md
+├── .env.example
+└── README.md
+```
+
+---
+
+## What's Next
+
+Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:
+
+- Parallel scout execution
+- Full-text ingestion beyond abstracts
+- Persistent memory across sessions
+- Domain filtering — let the user specify "academic only" or "web only"
+- Citation export — download the contradiction map as a PDF
+
+Those are conversations for another day.

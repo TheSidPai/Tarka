@@ -104,6 +104,10 @@ npm run dev
 
 **Dynamic Synthesis & Follow-up Matrix.** The Synthesizer is a dedicated formatting node that applies strict Pydantic schemas (via `.with_structured_output()`) to the raw state data. Because it performs zero reasoning, it reliably packages the metrics, consensus arrays, and generates context-aware follow-up questions for the UI.
 
+**Hallucination Guard.** If either the web or paper scout returns empty results, 
+the Critic node exits early rather than running analysis on partial data. 
+An LLM cross-examining only one source will invent the opposing side. 
+The guard prevents this entirely.
 ---
 
 ## Honest Limitations and Technical Trade-offs
@@ -119,4 +123,4 @@ Building a multi-agent reasoning engine highlights several edge cases in current
 
 ## Stack
 
-FastAPI · LangGraph · LangChain · React · TailwindCSS · Docker Compose · Claude 3.5 Haiku · Tavily API · OpenAlex API
+FastAPI · LangGraph · LangChain · React · TailwindCSS · Docker Compose · Claude 4.5 Haiku · Tavily API · OpenAlex API
