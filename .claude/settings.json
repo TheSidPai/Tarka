@@ -7,7 +7,18 @@
       "Bash(git rm *)",
       "Bash(./.venv/Scripts/python.exe -c ' *)",
       "Bash(git checkout *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -q -m '@ *)",
+      "Bash(git commit *)",
+      "Bash(git merge *)",
+      "Bash(git branch *)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Read(//c/Users/TheSidPai/.claude/**)",
+      "Bash(python -c \"import json;json.load\\(open\\(r'C:\\\\Users\\\\TheSidPai\\\\.claude\\\\settings.json'\\)\\);print\\('user settings.json OK'\\)\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\TheSidPai\\.claude"
     ]
   }
 }
