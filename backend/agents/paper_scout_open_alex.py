@@ -1,20 +1,9 @@
 import re
 import requests
 from graph.state import TarkaState
-import os
 
-SEMANTIC_SCHOLAR_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 OPENALEX_URL = "https://api.openalex.org/works"
 
-
-def clean_web_text(text):
-    if not text: return ""
-    # 1. Remove excessive whitespace, newlines, and tabs
-    clean = re.sub(r'\s+', ' ', text)
-    # 2. Strip out common markdown link syntax [Text](URL) keeping only the Text
-    clean = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', clean)
-    # 3. Trim down to the first few sentences or a readable limit (e.g., 500 characters)
-    return clean[:500].strip() + "..."
 
 def clean_query(query: str) -> str:
     clean = re.sub(r'[^\w\s]', '', query)

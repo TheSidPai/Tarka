@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -a .cursor .github 2>/dev/null; cat .cursorrules 2>/dev/null; cat .github/copilot-instructions.md 2>/dev/null; ls -a .codex ~/.codex ~/.gemini .gemini 2>/dev/null; ls GEMINI.md CLAUDE.md 2>/dev/null)",
+      "Read(//c/Users/TheSidPai/**)",
+      "Bash(pip show *)",
+      "Bash(git rm *)",
+      "Bash(./.venv/Scripts/python.exe -c ' *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)"
+    ]
+  }
+}

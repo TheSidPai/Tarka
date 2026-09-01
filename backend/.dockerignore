@@ -1,0 +1,6 @@
+# Build context is ./backend — keep the image to source only.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.env

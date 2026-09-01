@@ -38,7 +38,7 @@ Web Scout   Paper Scout    ← run sequentially (parallel-ready later)
 |---|---|---|
 | Orchestrator | Routes the query, sets `needs_fetch` flag | — |
 | Web Scout | Fetches open-web claims | Tavily API |
-| Paper Scout | Fetches paper abstracts and findings | ArXiv API |
+| Paper Scout | Fetches paper abstracts and findings | OpenAlex API |
 | Critic | Cross-examines both, flags contradictions and consensus | LLM |
 | Synthesizer | Packages everything into a typed JSON schema | LLM + Pydantic |
 
@@ -47,9 +47,9 @@ Web Scout   Paper Scout    ← run sequentially (parallel-ready later)
 | Layer | Choice |
 |---|---|
 | Agent framework | LangGraph + LangChain |
-| LLM | OpenAI GPT-4o / or other |
+| LLM | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) via `langchain-anthropic` |
 | Web search | Tavily API |
-| Academic search | `arxiv` Python package |
+| Academic search | OpenAlex REST API (via `requests`) |
 | Backend | FastAPI + SSE streaming |
 | Frontend | React + Tailwind (Vite) |
 | Memory | In-context conversation history (per session) |
@@ -1110,6 +1110,7 @@ tarka/
 │   ├── server.py
 │   ├── main.py
 │   ├── requirements.txt
+│   ├── .dockerignore
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
@@ -1123,22 +1124,58 @@ tarka/
 │   │   └── index.css
 │   └── package.json
 ├── docs/
-│   ├── project_overview_and_day1.md
-│   ├── project_timeline.md
-│   ├── docs_day2.md
-│   ├── docs_day3.md  
-│   ├── docs_day4.md
-│   ├── docs_day5.md
-│   ├── docs_day7.md
-│   ├── docs_day8.md
-│   ├── docs_day9.md
-│   └── docs_day10.md
+│   ├── project_documentation.md
+│   ├── previous_prompts.md
+│   └── project_timeline.md
 ├── assets/
 ├── docker-compose.yml
 ├── DEMO.md
 ├── .env.example
 └── README.md
 ```
+
+---
+
+## Maintenance Log
+
+### 2026-09-01 — Housekeeping pass
+
+A cleanup pass with a deliberate constraint: **no change to runtime behaviour**. Every edit below is either a deletion of something unreachable, a dependency declaration matching what was already installed, or a documentation correction. The graph was recompiled afterwards and still registers all five nodes. Known bugs were explicitly left alone so they can be fixed in isolation — see *Deferred* at the end.
+
+**Dead code removed**
+
+- `backend/tools/arxiv_tool.py` and `backend/tools/tavily_tool.py` — both were 0-byte placeholders from the Day 1/2 scaffold, never filled in. The scouts call the Tavily SDK and the OpenAlex REST endpoint directly, so nothing ever imported them. Directory removed.
+- `from unittest import result` in `backend/main.py` — an autocomplete artifact, unused.
+- `clean_web_text()` in `backend/agents/paper_scout_open_alex.py` — defined but never called; abstracts go through `reconstruct_abstract()` instead.
+- `import os` and the leftover `SEMANTIC_SCHOLAR_URL` constant in the same file — residue from the Semantic Scholar era.
+
+**Dependency hygiene — `backend/requirements.txt`**
+
+- **`langchain-anthropic` pinned to `==0.1.23`.** This was the only latent build failure in the repo. The package was unpinned, so a clean `docker compose build` would resolve to a current release requiring `langchain-core>=0.3`, which cannot coexist with the pinned `langgraph==0.1.4` / `langchain==0.2.5` (both cap `langchain-core<0.3`). Local development never hit this because the environment had already resolved to 0.1.23. The pin records that fact; a comment above it explains the constraint so it doesn't get "upgraded" back into a conflict.
+- **`requests==2.32.5` added.** The paper scout imports it directly but it was only ever installed transitively via `langchain`/`tavily`. Pinned to the version already resolved locally.
+- **`arxiv`, `langchain-openai`, and `bs4` removed.** No module in the project imports any of them — leftovers from the ArXiv-based paper scout and the original GPT-4o plan.
+
+**Repository hygiene**
+
+- `.gitignore` extended to cover `__pycache__/`, `*.py[cod]`, and `.venv/`. It previously contained only `.env`, which meant 12 compiled `.pyc` files were tracked in git and a 178 MB virtualenv sat untracked-but-unignored in `backend/`.
+- Those 12 `.pyc` files untracked via `git rm --cached` (left on disk).
+- `backend/.dockerignore` added. The Dockerfile's `COPY . .` was copying `backend/.venv/` — 178 MB of Windows-built, Python 3.13 packages — into a Linux Python 3.11 image on every build. Inert at runtime (the image reinstalls from `requirements.txt`) but a large and pointless layer.
+- Obsolete `version: '3.8'` key dropped from `docker-compose.yml`; modern Compose warns on it and ignores it.
+
+**Documentation corrected**
+
+The architecture and tech-stack tables above had drifted from the code: they still listed the ArXiv API as the paper source and GPT-4o as the LLM. Both were updated to OpenAlex and Claude Haiku 4.5. The day-by-day narrative is left as originally written — it records how the project was built, including the approaches that failed, and is not meant to track the final state.
+
+**Deferred — real bugs, intentionally not touched here**
+
+These change behaviour and belong in their own commits, not in a cleanup pass:
+
+1. **SSE frame reassembly (`frontend/src/App.jsx`).** `decoder.decode(value).split("\n")` assumes every network chunk contains whole `data:` lines. A frame split across two reads yields fragments that fail `JSON.parse` and are silently discarded by the `catch { continue }`. Harmless for `status` events; would blank the UI if it hit the `result` frame. Needs a buffer carried across reads plus `decode(value, {stream: true})`.
+2. **Stuck spinner.** `setLoading(false)` fires only on the `done` event, so any other stream termination leaves the UI loading forever.
+3. **Misplaced `try` in `critic_twopass.py`.** The `try` wraps only the `.replace()` chain; `base_llm.invoke()` sits above it. A genuine LLM failure therefore escapes the node, while the handler reading `"Critic LLM call failed"` can only fire on a non-string `.content`.
+4. **Post-hoc status text.** `server.py` yields `"Executing {node}..."` while iterating *completed* steps, so the UI reads "Executing critic..." after the critic has finished.
+
+Also left in place deliberately: the unused `critic_node` / `critic_node_split` imports in `graph/graph.py`, and `agents/paper_scout_ss.py`. Both are unreachable, but they document the structured-output and Semantic Scholar approaches that were tried and abandoned — which is the argument the README is built on.
 
 ---
 
