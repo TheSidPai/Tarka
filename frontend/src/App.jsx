@@ -55,11 +55,27 @@ export default function App() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // Network chunks don't align to line boundaries — a single SSE frame can
+      // arrive split across two reads. Buffer the tail until it's a whole line,
+      // otherwise both halves fail JSON.parse and the event is lost silently.
+      let buffer = "";
+      let streaming = true;
 
-        const lines = decoder.decode(value).split("\n");
+      while (streaming) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          buffer += decoder.decode(); // flush any trailing bytes
+          streaming = false;
+        } else {
+          buffer += decoder.decode(value, { stream: true });
+        }
+
+        const lines = buffer.split("\n");
+        // While the stream is live the last piece may be a partial line, so
+        // hold it back for the next read. Once closed, everything is complete.
+        buffer = streaming ? lines.pop() : "";
+
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
 
@@ -75,7 +91,6 @@ export default function App() {
           }
           if (event.type === "error") {
             setError(event.message);
-            setLoading(false);
             return;
           }
           if (event.type === "result") {
@@ -96,12 +111,15 @@ export default function App() {
             ]);
           }
           if (event.type === "done") {
-            setLoading(false);
+            streaming = false;
           }
         }
       }
     } catch (err) {
       setError(err.message);
+    } finally {
+      // Runs on every exit path — normal end, thrown error, or the early
+      // return above — so the spinner can't outlive the request.
       setLoading(false);
     }
   }

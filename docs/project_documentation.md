@@ -1170,12 +1170,32 @@ The architecture and tech-stack tables above had drifted from the code: they sti
 
 These change behaviour and belong in their own commits, not in a cleanup pass:
 
-1. **SSE frame reassembly (`frontend/src/App.jsx`).** `decoder.decode(value).split("\n")` assumes every network chunk contains whole `data:` lines. A frame split across two reads yields fragments that fail `JSON.parse` and are silently discarded by the `catch { continue }`. Harmless for `status` events; would blank the UI if it hit the `result` frame. Needs a buffer carried across reads plus `decode(value, {stream: true})`.
-2. **Stuck spinner.** `setLoading(false)` fires only on the `done` event, so any other stream termination leaves the UI loading forever.
+1. **SSE frame reassembly (`frontend/src/App.jsx`).** — *fixed 2026-09-02, see below.*
+2. **Stuck spinner.** — *fixed 2026-09-02, see below.*
 3. **Misplaced `try` in `critic_twopass.py`.** The `try` wraps only the `.replace()` chain; `base_llm.invoke()` sits above it. A genuine LLM failure therefore escapes the node, while the handler reading `"Critic LLM call failed"` can only fire on a non-string `.content`.
 4. **Post-hoc status text.** `server.py` yields `"Executing {node}..."` while iterating *completed* steps, so the UI reads "Executing critic..." after the critic has finished.
 
 Also left in place deliberately: the unused `critic_node` / `critic_node_split` imports in `graph/graph.py`, and `agents/paper_scout_ss.py`. Both are unreachable, but they document the structured-output and Semantic Scholar approaches that were tried and abandoned — which is the argument the README is built on.
+
+### 2026-09-02 — SSE stream reliability
+
+Fixes deferred items 1 and 2 from the pass above. Both live in `handleSearch` in `frontend/src/App.jsx`; the backend is untouched.
+
+**The bug.** The reader loop did `decoder.decode(value).split("\n")` on each network chunk, which assumes a chunk contains only whole `data:` lines. Chunks are byte-sized, not line-sized: a frame straddling two reads becomes two fragments, each fails `JSON.parse`, and the `catch { continue }` discards both without a trace. Because the `result` frame carrying the whole synthesis payload is by far the largest, it was the one most likely to be split — a lost `result` leaves the UI blank with no error.
+
+This was not theoretical. Simulating the real event sequence (four statuses, a ~2.8 KB result, a done) and splitting it at every one of 3104 byte positions, the old loop lost events at 3087 of them. At realistic 1400-byte MTU chunking it recovered only the four statuses and the `done` — dropping the payload every time. The reason it appeared to work in the demo is that a fast loopback connection to a local backend usually delivers small responses in a single chunk.
+
+**The fix.** Carry a `buffer` across reads and only parse lines known to be complete:
+
+- `buffer += decoder.decode(value, { stream: true })` — the `stream` flag also holds back multi-byte UTF-8 characters split mid-character, which previously corrupted accented text in paper abstracts.
+- `buffer = streaming ? lines.pop() : ""` — `pop()` removes the trailing piece and parks it for the next read while the stream is live; once the reader reports `done`, a final `decoder.decode()` flushes and everything remaining is complete.
+- The `done` event now sets `streaming = false` rather than toggling the spinner, so the loop exits on the event without waiting for the server to close the socket.
+
+Re-running the same simulation against the new loop: 0 events lost across all 3104 split positions, and all events recovered at 1-, 16-, 64-, 512- and 1400-byte chunking, including a stream that ends without a trailing newline.
+
+**Spinner.** `setLoading(false)` was called in three places — the `done` event, the `error` branch, and the `catch` — which covered every path except the ones that matter: a dropped connection, a dead server, or a `done` event lost to the bug above. It now lives in a single `finally` on the existing `try`, which runs on normal completion, on a thrown error, and on the early `return` in the error branch. Strictly a superset of the old behaviour, and no longer dependent on any particular event arriving.
+
+Still deferred: items 3 and 4 above.
 
 ---
 
