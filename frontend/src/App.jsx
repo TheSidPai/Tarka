@@ -231,7 +231,9 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
+    // No background here — body paints it, and an opaque fill at this level
+    // would cover the body::before dot texture.
+    <div style={{ minHeight: "100vh" }}>
       {/* Theme toggle */}
       <div style={{ position: "absolute", top: 20, right: 24 }}>
         <button

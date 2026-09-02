@@ -31,13 +31,15 @@ export default function SearchBar({ onSearch, hasResults, disabled }) {
       {!hasResults && (
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <h1 style={{
-            fontSize: 48,
-            fontWeight: 600,
+            fontFamily: "var(--font-display)",
+            fontSize: 76,
+            fontWeight: 400,
             color: "var(--text-primary)",
-            letterSpacing: "-1px",
-            marginBottom: 12
+            letterSpacing: "-0.03em",
+            lineHeight: 1,
+            marginBottom: 18
           }}>
-            Tarka
+            tarka
           </h1>
           <p style={{
             fontSize: 16,
@@ -51,14 +53,16 @@ export default function SearchBar({ onSearch, hasResults, disabled }) {
 
       {/* Logo inline when results showing */}
       {hasResults && (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 18 }}>
           <span style={{
-            fontSize: 22,
-            fontWeight: 600,
+            fontFamily: "var(--font-display)",
+            fontSize: 30,
+            fontWeight: 400,
             color: "var(--text-primary)",
-            letterSpacing: "-0.5px"
+            letterSpacing: "-0.025em",
+            lineHeight: 1
           }}>
-            Tarka
+            tarka
           </span>
         </div>
       )}

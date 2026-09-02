@@ -66,7 +66,9 @@
       "Bash(echo \"lint exit=$?\")",
       "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/e2e.py\" \"Does Ayurveda help in reducing back pain?\")",
       "Bash(curl -s -o /dev/null -w \"5173=%{http_code}  \" http://localhost:5173/)",
-      "Bash(curl -s -o /dev/null -w \"5173=%{http_code}\\\\n\" http://localhost:5173/)"
+      "Bash(curl -s -o /dev/null -w \"5173=%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(echo \"lint=$?\")",
+      "Bash(curl -s -o /dev/null -w \"favicon=%{http_code}\\\\n\" http://localhost:5173/favicon.svg)"
     ],
     "additionalDirectories": [
       "C:\\Users\\TheSidPai\\.claude"

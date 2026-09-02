@@ -20,7 +20,7 @@
   --contradiction-border: #4a1a1a;
   --accent: #f0f0f0;
   --card-bg: #141414;
-  --dot: rgba(255, 255, 255, 0.055);
+  --dot: rgba(255, 255, 255, 0.2);
   --btn-from: #fbfbfb;
   --btn-to: #dcdcdc;
   --btn-shadow: rgba(0, 0, 0, 0.45);
@@ -38,7 +38,7 @@
   --contradiction-border: #d5a8a8;
   --accent: #0e0e0e;
   --card-bg: #ffffff;
-  --dot: rgba(0, 0, 0, 0.075);
+  --dot: rgba(0, 0, 0, 0.2);
   --btn-from: #2c2c2c;
   --btn-to: #0e0e0e;
   --btn-shadow: rgba(0, 0, 0, 0.22);
@@ -49,6 +49,9 @@
 :root {
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  /* Wordmark only — Playfair's high contrast carries the logo but is too
+     mannered for body copy, which stays on Source Serif. */
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
 }
 
 /* 4. Global CSS Overrides */
@@ -78,10 +81,10 @@ body::before {
   background-image: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
   background-size: 26px 26px;
   -webkit-mask-image: linear-gradient(
-    to right, #000 0%, transparent 26%, transparent 74%, #000 100%
+    to right, #000 0%, transparent 33%, transparent 67%, #000 100%
   );
   mask-image: linear-gradient(
-    to right, #000 0%, transparent 26%, transparent 74%, #000 100%
+    to right, #000 0%, transparent 33%, transparent 67%, #000 100%
   );
 }
 
