@@ -3,6 +3,7 @@ import SearchBar from "./components/SearchBar";
 import StatusBar from "./components/StatusBar";
 import SynthesisPanel from "./components/SynthesisPanel";
 import FollowUpChips from "./components/FollowUpChips";
+import TurnActions from "./components/TurnActions";
 
 // One entry per question asked. Turns accumulate so the thread scrolls
 // instead of the previous answer being wiped on every follow-up.
@@ -113,14 +114,39 @@ function ErrorBanner({ message }) {
   );
 }
 
+const STORE_KEY = "tarka.thread.v1";
+
+// Restoring in a lazy initialiser rather than an effect: an effect would run
+// after the first render and race with the empty initial state.
+function loadStored() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed.turns)) return null;
+    return parsed;
+  } catch {
+    return null; // private mode, quota, or a stale shape — start fresh
+  }
+}
+
 export default function App() {
+  const stored = useRef(loadStored()).current;
+
   const [theme, setTheme] = useState("dark");
-  const [turns, setTurns] = useState([]);
+  // A half-finished turn shouldn't come back as permanently loading.
+  const [turns, setTurns] = useState(() =>
+    (stored?.turns ?? []).map((t) => ({ ...t, loading: false }))
+  );
   const [loading, setLoading] = useState(false);
-  const [conversationHistory, setConversationHistory] = useState([]);
+  const [conversationHistory, setConversationHistory] = useState(
+    () => stored?.conversationHistory ?? []
+  );
   // Held once at the top level rather than inside every turn: the payload
   // echoes the same ~37KB of sources back on each follow-up.
-  const [corpus, setCorpus] = useState({ web: [], papers: [] });
+  const [corpus, setCorpus] = useState(
+    () => stored?.corpus ?? { web: [], papers: [] }
+  );
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -136,8 +162,36 @@ export default function App() {
     }
   }, [turns.length]);
 
+  // Persist the thread so a refresh doesn't destroy it. Skipped mid-request:
+  // there's no value in storing a turn that's still streaming.
+  useEffect(() => {
+    if (loading) return;
+    try {
+      if (turns.length === 0) localStorage.removeItem(STORE_KEY);
+      else
+        localStorage.setItem(
+          STORE_KEY,
+          JSON.stringify({ turns, corpus, conversationHistory })
+        );
+    } catch {
+      // Quota exceeded or storage unavailable — the thread still works in
+      // memory, it just won't survive a refresh.
+    }
+  }, [turns, corpus, conversationHistory, loading]);
+
   function patchTurn(id, fn) {
     setTurns((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
+  }
+
+  function clearThread() {
+    setTurns([]);
+    setConversationHistory([]);
+    setCorpus({ web: [], papers: [] });
+    try {
+      localStorage.removeItem(STORE_KEY);
+    } catch {
+      /* nothing to clean up */
+    }
   }
 
   async function handleSearch(searchQuery) {
@@ -244,8 +298,28 @@ export default function App() {
     // No background here — body paints it, and an opaque fill at this level
     // would cover the body::before dot texture.
     <div style={{ minHeight: "100vh" }}>
-      {/* Theme toggle */}
-      <div style={{ position: "absolute", top: 20, right: 24 }}>
+      {/* Theme toggle + thread reset */}
+      <div
+        className="no-print"
+        style={{ position: "absolute", top: 20, right: 24, display: "flex", gap: 8 }}
+      >
+        {turns.length > 0 && !loading && (
+          <button
+            onClick={clearThread}
+            title="Clear this thread and start over"
+            style={{
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
+              borderRadius: 8,
+              padding: "6px 14px",
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            Clear
+          </button>
+        )}
         <button
           onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
           style={{
@@ -277,7 +351,10 @@ export default function App() {
 
               {turn.loading && !turn.synthesis && <StatusBar messages={turn.status} />}
               {turn.synthesis && (
-                <SynthesisPanel synthesis={turn.synthesis} sources={corpus} />
+                <>
+                  <SynthesisPanel synthesis={turn.synthesis} sources={corpus} />
+                  <TurnActions turn={turn} sources={corpus} />
+                </>
               )}
               {turn.error && <ErrorBanner message={turn.error} />}
 

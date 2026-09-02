@@ -34,7 +34,12 @@ def paper_scout_node(state: TarkaState) -> dict:
     params = {
         "search": query,
         "per-page": 15,
-        "select": "title,authorships,abstract_inverted_index,publication_year,id"
+        # doi/venue make the results citable (BibTeX, RIS); cited_by_count is a
+        # credibility signal the UI shows next to each paper.
+        "select": (
+            "title,authorships,abstract_inverted_index,publication_year,id,"
+            "doi,cited_by_count,primary_location"
+        )
     } # this is for OpenAlex API
 
     try:
@@ -52,7 +57,14 @@ def paper_scout_node(state: TarkaState) -> dict:
                 ),
                 "summary": reconstruct_abstract(p.get("abstract_inverted_index", {})),
                 "year": p.get("publication_year"),
-                "paper_id": p.get("id", "")
+                "paper_id": p.get("id", ""),
+                # OpenAlex returns the DOI as a full URL; strip to a bare DOI
+                # so citation formats can use it directly.
+                "doi": (p.get("doi") or "").replace("https://doi.org/", ""),
+                "cited_by_count": p.get("cited_by_count", 0),
+                "venue": (
+                    ((p.get("primary_location") or {}).get("source") or {}).get("display_name", "")
+                ),
             }
             # OpenAlex stores the list of works in 'results', not 'data'
             for p in data.get("results", [])

@@ -17,6 +17,7 @@ export default function SearchBar({ onSearch, hasResults, disabled }) {
 
   return (
     <div
+      className={hasResults ? "no-print" : undefined}
       style={{
         display: "flex",
         flexDirection: "column",

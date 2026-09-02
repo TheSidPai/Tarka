@@ -113,10 +113,27 @@ function SourceList({ web, papers }) {
         <ol style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 9 }}>
           {papers.map((p, i) => (
             <li key={i} style={{ fontSize: 12, lineHeight: 1.45, color: "var(--text-primary)" }}>
-              {p.title}
+              {p.doi ? (
+                <a
+                  href={`https://doi.org/${p.doi}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "var(--text-primary)", textDecoration: "none" }}
+                >
+                  {p.title}
+                </a>
+              ) : (
+                p.title
+              )}
               <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>
                 {p.year ? ` · ${p.year}` : ""}
-                {p.authors ? ` · ${p.authors.split(",").slice(0, 2).join(",")}${p.authors.split(",").length > 2 ? " et al." : ""}` : ""}
+                {p.venue ? ` · ${p.venue}` : ""}
+                {p.cited_by_count ? (
+                  <>
+                    {" · "}
+                    <span className="tnum">{p.cited_by_count.toLocaleString()}</span> cites
+                  </>
+                ) : null}
               </span>
             </li>
           ))}
@@ -192,7 +209,13 @@ export default function SynthesisPanel({ synthesis, sources }) {
           {summary}
         </p>
 
-        {showSources && <SourceList web={web} papers={papers} />}
+        {/* Always mounted so the print stylesheet can reveal it — a
+            conditionally rendered node can't be un-hidden by CSS. */}
+        {canExpand && (
+          <div className="sources" data-open={showSources ? "true" : "false"}>
+            <SourceList web={web} papers={papers} />
+          </div>
+        )}
       </div>
 
       {(!consensus || consensus.length === 0) &&

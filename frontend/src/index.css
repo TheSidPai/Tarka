@@ -81,10 +81,10 @@ body::before {
   background-image: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
   background-size: 26px 26px;
   -webkit-mask-image: linear-gradient(
-    to right, #000 0%, transparent 33%, transparent 67%, #000 100%
+    to right, #000 0%, transparent 25%, transparent 75%, #000 100%
   );
   mask-image: linear-gradient(
-    to right, #000 0%, transparent 33%, transparent 67%, #000 100%
+    to right, #000 0%, transparent 25%, transparent 75%, #000 100%
   );
 }
 
@@ -106,4 +106,54 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) {
   .turn-in { animation: none; }
+}
+
+/* Sources stay mounted so print can reveal them; CSS owns the collapsed
+   state rather than a conditional render. */
+.sources[data-open="false"] { display: none; }
+
+/* ---------------------------------------------------------------- Print
+   "Save as PDF" in the browser dialogue produces the export. Forced onto a
+   light palette — printing a near-black page wastes ink and reads badly. */
+@media print {
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --bg-primary: #fff;
+    --bg-secondary: #fff;
+    --text-primary: #111;
+    --text-secondary: #555;
+    --border: #ccc;
+    --card-bg: #fff;
+    --consensus-bg: #fff;
+    --consensus-border: #7aa98a;
+    --contradiction-bg: #fff;
+    --contradiction-border: #b98080;
+    --dot: transparent;
+  }
+
+  body { background: #fff; }
+  body::before { display: none; }
+
+  /* Chrome that means nothing on paper. Deliberately not a blanket
+     `button` rule — the source-count toggle is a button and its text is
+     real metadata that belongs in the export. */
+  .no-print { display: none !important; }
+
+  /* Every source listed, whether or not it was expanded on screen */
+  .sources[data-open="false"] { display: block !important; }
+
+  .turn-in { animation: none; }
+
+  /* Keep a claim and its quotes on one page */
+  article, li, blockquote { break-inside: avoid; }
+
+  a { text-decoration: none; color: inherit; }
+  /* Links are useless on paper unless the URL is visible */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 9px;
+    color: #777;
+    word-break: break-all;
+  }
+
+  @page { margin: 18mm 16mm; }
 }

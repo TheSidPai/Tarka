@@ -1344,6 +1344,26 @@ The cause is structural, not a prompt-tuning problem. A follow-up still runs the
 
 ---
 
+### 2026-09-03 — Downstream utility: export, citations, persistence
+
+Five changes aimed at what happens *after* a query, rather than at the analysis itself.
+
+**Richer OpenAlex fields.** One string in `paper_scout_open_alex.py` — the `select` now also requests `doi`, `cited_by_count` and `primary_location`. On a real query all 15 papers came back with both a DOI and a venue. This is what makes citation export possible, and `cited_by_count` doubles as a credibility signal shown next to each paper in the sources list. Relevance ordering is unchanged; sorting by citation count is available but not taken.
+
+**Copy as Markdown.** `frontend/src/lib/export.js` renders a turn as Markdown — summary, contradictions and consensus with their quotes as blockquotes, web sources as real links, and the full source list with years, venues and citation counts. Pastes into Notion, Obsidian or a doc with structure intact. This is the export that matters: a PDF is terminal, but nobody edits a PDF into their essay.
+
+**BibTeX and RIS.** Both generated client-side from the corpus already in memory. BibTeX keys are `surnameYearword`, deduplicated with a suffix; titles are brace-wrapped to preserve case; `&`, `%`, `$`, `#` and `_` are escaped. RIS inverts author names to `Last, First` on a best-effort basis (the final token is taken as the surname, which is wrong for compound surnames). Copy to clipboard or download as `.bib` / `.ris` for Zotero, Mendeley or EndNote.
+
+**localStorage persistence.** A refresh previously destroyed the entire thread. Turns, corpus and history are now saved under `tarka.thread.v1` and restored in a **lazy `useState` initialiser** rather than an effect — an effect runs after first render and would race with the empty initial state. Writes are skipped mid-request, restored turns have `loading` forced false so a half-finished turn can't come back permanently spinning, and every access is wrapped in try/catch for private-mode and quota failures. A `Clear` button appears next to the theme toggle once a thread exists.
+
+**Print stylesheet.** `window.print()` plus ~45 lines of `@media print`, rather than a PDF library — a library would be a ~200KB dependency producing worse output for text this dense. Print forces the light palette regardless of theme (a near-black page wastes ink), drops the background texture, hides `.no-print` chrome, appends `(url)` after links since a link is useless on paper, and sets `break-inside: avoid` so a claim and its quotes stay on one page.
+
+One structural detail this required: the sources list is now **always mounted** with a `data-open` attribute and hidden via CSS, rather than conditionally rendered. CSS cannot reveal a node React never rendered, so print would otherwise have exported a collapsed, empty sources section. For the same reason the print rules deliberately avoid a blanket `button { display: none }` — the source-count toggle is a button whose text is real metadata.
+
+**Verification.** Export formats were generated from a live query and checked: one BibTeX entry per paper, unique keys, balanced braces, DOIs present, every RIS record terminated with `ER  -`, authors inverted correctly, Markdown containing headings, links and citation counts, and no `undefined` leaking into any of the three formats. Frontend lint and build clean; backend suites (critic, synthesizer, history) still pass.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:

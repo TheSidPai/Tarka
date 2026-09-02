@@ -2,7 +2,8 @@ export default function FollowUpChips({ followups, onSelect }) {
   if (!followups || followups.length === 0) return null
 
   return (
-    <div style={{ marginTop: 28 }}>
+    // Unclickable on paper, so excluded from print
+    <div className="no-print" style={{ marginTop: 28 }}>
       <p style={{
         fontSize: 11,
         fontWeight: 500,
