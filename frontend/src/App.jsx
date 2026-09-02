@@ -4,37 +4,109 @@ import StatusBar from "./components/StatusBar";
 import SynthesisPanel from "./components/SynthesisPanel";
 import FollowUpChips from "./components/FollowUpChips";
 
+// One entry per question asked. Turns accumulate so the thread scrolls
+// instead of the previous answer being wiped on every follow-up.
+function newTurn(id, query) {
+  return { id, query, status: [], synthesis: null, error: null, loading: true };
+}
+
+function QuestionHeader({ query, index }) {
+  return (
+    <div
+      style={{
+        maxWidth: 720,
+        margin: "40px auto 0",
+        padding: "0 24px",
+        display: "flex",
+        alignItems: "baseline",
+        gap: 12,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 12,
+          color: "var(--text-secondary)",
+          border: "1px solid var(--border)",
+          borderRadius: 6,
+          padding: "2px 7px",
+          flexShrink: 0,
+        }}
+      >
+        {index + 1}
+      </span>
+      <h2
+        style={{
+          fontSize: 19,
+          fontWeight: 600,
+          color: "var(--text-primary)",
+          lineHeight: 1.4,
+          margin: 0,
+        }}
+      >
+        {query}
+      </h2>
+    </div>
+  );
+}
+
+function ErrorBanner({ message }) {
+  return (
+    <div style={{ maxWidth: 720, margin: "24px auto 0", padding: "0 24px" }}>
+      <div
+        style={{
+          padding: "16px 20px",
+          borderRadius: 10,
+          border: "1px solid var(--contradiction-border)",
+          background: "var(--contradiction-bg)",
+          fontSize: 14,
+          color: "var(--text-primary)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <span style={{ color: "var(--contradiction-border)" }}>✕</span>
+        {message === "Failed to fetch"
+          ? "Backend unreachable. Make sure the server is running on port 8000."
+          : message}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [theme, setTheme] = useState("dark");
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState([]);
-  const [synthesis, setSynthesis] = useState(null);
+  const [turns, setTurns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [conversationHistory, setConversationHistory] = useState([]);
-  const [error, setError] = useState(null);
-  const [lastResults, setLastResults] = useState({ web: [], papers: [] });
+  // Held once at the top level rather than inside every turn: the payload
+  // echoes the same ~37KB of sources back on each follow-up.
+  const [corpus, setCorpus] = useState({ web: [], papers: [] });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  const synthesisRef = useRef(null);
+  const lastTurnRef = useRef(null);
 
+  // Scroll when a turn is *added*, not as its content streams in — scrolling
+  // on every payload update makes the page jump around while it loads.
   useEffect(() => {
-    if (synthesis && synthesisRef.current) {
-      synthesisRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+    if (turns.length > 0 && lastTurnRef.current) {
+      lastTurnRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, [synthesis]);
+  }, [turns.length]);
+
+  function patchTurn(id, fn) {
+    setTurns((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
+  }
 
   async function handleSearch(searchQuery) {
-    setQuery(searchQuery);
-    setSynthesis(null);
-    setStatus([]);
+    if (loading) return; // one request at a time; the input is disabled too
+
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setTurns((prev) => [...prev, newTurn(id, searchQuery)]);
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch("http://localhost:8000/api/research", {
@@ -43,8 +115,8 @@ export default function App() {
         body: JSON.stringify({
           query: searchQuery,
           conversation_history: conversationHistory,
-          previous_web_results: lastResults.web,
-          previous_paper_results: lastResults.papers,
+          previous_web_results: corpus.web,
+          previous_paper_results: corpus.papers,
         }),
       });
 
@@ -87,27 +159,21 @@ export default function App() {
           }
 
           if (event.type === "status") {
-            setStatus((prev) => [...prev, event.message]);
+            patchTurn(id, (t) => ({ ...t, status: [...t.status, event.message] }));
           }
           if (event.type === "error") {
-            setError(event.message);
+            patchTurn(id, (t) => ({ ...t, error: event.message }));
             return;
           }
           if (event.type === "result") {
-            console.log("Payload received:", event.payload);
-            console.log("Follow-ups:", event.payload.suggested_followups);
-            setSynthesis(event.payload);
-            setLastResults({
-              web: event.payload.web_results || [],
-              papers: event.payload.paper_results || [],
-            });
+            // Keep the sources out of the turn — they're identical every turn.
+            const { web_results, paper_results, ...synthesis } = event.payload;
+            setCorpus({ web: web_results || [], papers: paper_results || [] });
+            patchTurn(id, (t) => ({ ...t, synthesis }));
             setConversationHistory((prev) => [
               ...prev,
               { role: "user", content: searchQuery },
-              {
-                role: "assistant",
-                content: JSON.stringify(event.payload.summary),
-              },
+              { role: "assistant", content: JSON.stringify(event.payload.summary) },
             ]);
           }
           if (event.type === "done") {
@@ -116,10 +182,11 @@ export default function App() {
         }
       }
     } catch (err) {
-      setError(err.message);
+      patchTurn(id, (t) => ({ ...t, error: err.message }));
     } finally {
       // Runs on every exit path — normal end, thrown error, or the early
-      // return above — so the spinner can't outlive the request.
+      // return above — so a turn can't stay stuck loading.
+      patchTurn(id, (t) => ({ ...t, loading: false }));
       setLoading(false);
     }
   }
@@ -146,51 +213,34 @@ export default function App() {
 
       <SearchBar
         onSearch={handleSearch}
-        hasResults={!!synthesis || loading}
-        value={query}
+        hasResults={turns.length > 0}
+        disabled={loading}
       />
 
-      {status.length > 0 && !synthesis && <StatusBar messages={status} />}
-      {synthesis && (
-        <>
-          <div ref={synthesisRef}>
-            <SynthesisPanel synthesis={synthesis} />
-          </div>
-          <FollowUpChips
-            followups={synthesis.suggested_followups}
-            onSelect={handleSearch}
-          />
-        </>
-      )}
+      {turns.map((turn, i) => {
+        const isLast = i === turns.length - 1;
+        return (
+          <div key={turn.id} ref={isLast ? lastTurnRef : null}>
+            <QuestionHeader query={turn.query} index={i} />
 
-      {error && (
-        <div
-          style={{
-            maxWidth: 720,
-            margin: "32px auto 0",
-            padding: "0 24px",
-          }}
-        >
-          <div
-            style={{
-              padding: "16px 20px",
-              borderRadius: 10,
-              border: "1px solid var(--contradiction-border)",
-              background: "var(--contradiction-bg)",
-              fontSize: 14,
-              color: "var(--text-primary)",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <span style={{ color: "var(--contradiction-border)" }}>✕</span>
-            {error === "Failed to fetch"
-              ? "Backend unreachable. Make sure the server is running on port 8000."
-              : error}
+            {turn.loading && !turn.synthesis && <StatusBar messages={turn.status} />}
+            {turn.synthesis && <SynthesisPanel synthesis={turn.synthesis} />}
+            {turn.error && <ErrorBanner message={turn.error} />}
+
+            {/* Chips only under the newest answer — offering them on older
+                turns would branch the thread, which conversation_history
+                (a flat list) can't represent. */}
+            {isLast && !turn.loading && turn.synthesis && (
+              <FollowUpChips
+                followups={turn.synthesis.suggested_followups}
+                onSelect={handleSearch}
+              />
+            )}
           </div>
-        </div>
-      )}
+        );
+      })}
+
+      <div style={{ height: 80 }} />
     </div>
   );
 }

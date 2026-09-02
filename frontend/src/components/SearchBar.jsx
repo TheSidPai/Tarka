@@ -1,15 +1,14 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 
-export default function SearchBar({ onSearch, hasResults, value }) {
+export default function SearchBar({ onSearch, hasResults, disabled }) {
   const [input, setInput] = useState("")
 
-  useEffect(() => {
-    if (value) setInput(value)
-  }, [value])
-
+  // The question is rendered in the thread now, so the box clears on submit
+  // instead of mirroring the active query back from the parent.
   function handleSubmit() {
-    if (!input.trim()) return
+    if (disabled || !input.trim()) return
     onSearch(input.trim())
+    setInput("")
   }
 
   function handleKeyDown(e) {
@@ -77,7 +76,8 @@ export default function SearchBar({ onSearch, hasResults, value }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask a research question..."
+          disabled={disabled}
+          placeholder={disabled ? "Researching..." : "Ask a research question..."}
           style={{
             flex: 1,
             padding: "14px 18px",
@@ -87,10 +87,12 @@ export default function SearchBar({ onSearch, hasResults, value }) {
             color: "var(--text-primary)",
             fontSize: 15,
             outline: "none",
+            opacity: disabled ? 0.6 : 1,
           }}
         />
         <button
           onClick={handleSubmit}
+          disabled={disabled}
           style={{
             padding: "14px 24px",
             borderRadius: 12,
@@ -99,8 +101,9 @@ export default function SearchBar({ onSearch, hasResults, value }) {
             color: "var(--bg-primary)",
             fontSize: 15,
             fontWeight: 500,
-            cursor: "pointer",
-            whiteSpace: "nowrap"
+            cursor: disabled ? "not-allowed" : "pointer",
+            whiteSpace: "nowrap",
+            opacity: disabled ? 0.6 : 1,
           }}
         >
           Search

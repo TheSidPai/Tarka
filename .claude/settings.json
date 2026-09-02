@@ -51,7 +51,18 @@
       "Bash(PYTHONPATH=. timeout 120 ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_critic.py\")",
       "Bash(PYTHONPATH=. timeout 120 ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_synth.py\")",
       "Bash(PYTHONPATH=. timeout 60 ./.venv/Scripts/python.exe -c ' *)",
-      "Bash(PYTHONPATH=. ANTHROPIC_API_KEY=sk-ant-invalid-key-to-force-fallback timeout 280 ./.venv/Scripts/python.exe -c ' *)"
+      "Bash(PYTHONPATH=. ANTHROPIC_API_KEY=sk-ant-invalid-key-to-force-fallback timeout 280 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" http://localhost:8000/)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" http://localhost:8000/docs)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" -X POST http://localhost:8000/api/research -H \"Content-Type: application/json\" -d '{\"query\":\"ping\",\"conversation_history\":[{\"role\":\"user\",\"content\":\"x\"}],\"previous_web_results\":[],\"previous_paper_results\":[]}')",
+      "Bash(curl -s -o /dev/null -w \"UI  http://localhost:5173  status=%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\n\" -X OPTIONS http://localhost:8000/api/research -H \"Origin: http://localhost:5173\" -H \"Access-Control-Request-Method: POST\")",
+      "Bash(echo \"=== exit: $? ===\")",
+      "Bash(curl -s -o /dev/null -w \"5173 status=%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"App.jsx status=%{http_code}\\\\n\" http://localhost:5173/src/App.jsx)",
+      "Bash(node \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/thread-sim.mjs\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\TheSidPai\\.claude"

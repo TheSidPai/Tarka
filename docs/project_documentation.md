@@ -1292,6 +1292,28 @@ That run was also the first clean full-pipeline success since the Synthesizer fi
 
 ---
 
+### 2026-09-02 — Conversation thread: follow-ups append instead of replacing
+
+Clicking a follow-up chip used to wipe the previous answer and start over. Answers now accumulate down the page as a thread.
+
+**Frontend only.** The API is already stateless and turn-based — it takes a query plus prior context and returns one payload, with no notion of "the current answer" to erase. The wiping was purely a client choice: `setSynthesis(null)` on each search, and a render tree treating `synthesis` as a single slot.
+
+**Structure.** `synthesis` (one object) became `turns` (an array), each entry `{ id, query, status, synthesis, error, loading }`. SSE handlers patch their own turn by id instead of setting global state, so `setStatus(prev => ...)` became `patchTurn(id, t => ...)`. `SynthesisPanel`, `StatusBar` and `FollowUpChips` were already pure and prop-driven and did not change at all.
+
+Decisions worth recording:
+
+- **Chips render only under the newest answer.** Offering them on older turns would branch the thread, which `conversation_history` — a flat list — cannot represent.
+- **Scroll fires on turn *append*, not on content updates** (`useEffect` on `turns.length`). Scrolling as the payload streams in makes the page jump while it loads.
+- **The source corpus is hoisted to a single top-level `corpus` state** and stripped from each stored turn. Every payload echoes the same ~48KB of sources back; keeping them per-turn would duplicate that N times in memory and in the request body. Measured on a two-turn thread: 10KB of turns plus 48KB of corpus stored once.
+- **Errors are per-turn**, so a failure on turn 3 no longer wipes the thread.
+- **The input clears on submit** and is disabled while a request is in flight. The question is now rendered in the thread, so `SearchBar` no longer mirrors it back from the parent — which let its `value`-syncing `useEffect` go, clearing the last remaining eslint error in the repo (`npm run lint` is now exit 0).
+
+**Verification.** `npm run lint` clean, `npm run build` clean, HMR applied without errors. The turn state machine was then replicated verbatim in a Node script and driven against the live backend for two real turns, asserting: turn 1 survives, both turns hold their own answer and question, no turn stays stuck loading, sources are stripped from turns, the corpus is held once, and history grows to two exchanges. All passed. Browser rendering itself was not verified — there is no browser in this environment.
+
+**Known limitation, unchanged by this work.** `conversation_history` is still write-only server-side: `orchestrator.py` reads only `len(...) > 0` as a boolean and the Critic never sees its contents. Follow-up turns are therefore independent re-analyses of the same cached corpus, not a conversation — the model does not know what it already said. The thread UI makes this more visible than the old wipe-and-replace did, since consecutive turns can surface overlapping consensus points. Passing the history into the Critic's prompt is the next change if the thread should read as genuinely conversational.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:
