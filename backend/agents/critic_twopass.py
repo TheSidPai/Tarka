@@ -1,4 +1,5 @@
 import re
+from agents.history import format_prior_findings
 from agents.llm import FallbackLLM
 from graph.state import TarkaState
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -44,7 +45,15 @@ def critic_two_pass_node(state: TarkaState) -> dict:
         "1. Do NOT use Markdown formatting. Do NOT include conversational filler.\n"
         "2. Only output the requested tags and their contents.\n"
         "3. If you find no consensus or no contradictions, simply omit those specific tags.\n"
-        "4. Output 'N/A' for any missing URLs or Paper IDs.\n\n"
+        "4. Output 'N/A' for any missing URLs or Paper IDs.\n"
+        "5. An EARLIER IN THIS THREAD section may appear below. It is NOT evidence.\n"
+        "   It records conclusions you already drew, not sources. Never quote it, cite\n"
+        "   it, or treat any finding in it as established fact. EVERY quote you output\n"
+        "   must come from the RAW SURFACE WEB CLAIMS or RAW ACADEMIC PAPERS blocks.\n"
+        "   Use it for two things only: resolving what the user's new question refers\n"
+        "   to, and avoiding re-reporting findings that were already covered.\n"
+        "6. Do not withhold a genuinely relevant finding merely because it resembles an\n"
+        "   earlier one. If the new question puts it in a different light, report it.\n\n"
         "REQUIRED STRUCTURE:\n"
         "<analysis>\n"
         "  <summary>Write a 2-3 sentence overview of the general trend here.</summary>\n"
@@ -69,10 +78,19 @@ def critic_two_pass_node(state: TarkaState) -> dict:
         "</analysis>"
     )
 
+    # Findings only, capped to the last few turns — see agents/history.py.
+    prior = format_prior_findings(state.get("conversation_history", []))
+    prior_block = (
+        f"--- EARLIER IN THIS THREAD (context only — NOT evidence, never quote it) ---\n"
+        f"{prior}\n\n"
+        if prior else ""
+    )
+
     messages = [
         SystemMessage(content=system_instruction),
         HumanMessage(content=(
             f"Target Question: '{user_query}'\n\n"
+            f"{prior_block}"
             f"--- RAW SURFACE WEB CLAIMS ---\n{web_data}\n\n"
             f"--- RAW ACADEMIC PAPERS ---\n{paper_data}\n\n"
             "Generate the tag-based analysis now."

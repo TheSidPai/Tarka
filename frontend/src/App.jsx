@@ -209,10 +209,20 @@ export default function App() {
             const { web_results, paper_results, ...synthesis } = event.payload;
             setCorpus({ web: web_results || [], papers: paper_results || [] });
             patchTurn(id, (t) => ({ ...t, synthesis }));
+            // One entry per turn, findings only — the Critic uses these to
+            // resolve references and avoid repeating itself, never as evidence.
             setConversationHistory((prev) => [
               ...prev,
-              { role: "user", content: searchQuery },
-              { role: "assistant", content: JSON.stringify(event.payload.summary) },
+              {
+                question: searchQuery,
+                summary: synthesis.summary,
+                consensus_points: (synthesis.consensus || [])
+                  .map((c) => c.point)
+                  .filter(Boolean),
+                contradiction_topics: (synthesis.contradictions || [])
+                  .map((c) => c.conflict_topic)
+                  .filter(Boolean),
+              },
             ]);
           }
           if (event.type === "done") {

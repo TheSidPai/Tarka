@@ -1314,6 +1314,36 @@ Decisions worth recording:
 
 ---
 
+### 2026-09-03 — conversation_history becomes readable
+
+Until now `conversation_history` was write-only: the client accumulated it, the server passed it into state, and `orchestrator.py` read `len(...) > 0` as a routing boolean. The Critic never saw its contents, so a follow-up was an independent re-analysis of the same corpus rather than a conversation.
+
+**History is context, never evidence.** This was the design decision that mattered. The naive fix — dumping prior Q&A into the prompt — would have the Critic treat its own earlier summary as a source. A summary is an inference over a corpus, not evidence; feeding a model its own conclusions compounds errors across turns, which is the exact failure this project exists to prevent. Three safeguards:
+
+1. **Findings, not prose.** `agents/history.py` sends only `conflict_topic` and consensus `point` strings — never quotes, never source text.
+2. **Labelled non-evidentiary in the prompt.** The block is headed `EARLIER IN THIS THREAD (context only — NOT evidence, never quote it)`, and a system rule states that every quote must still come from the raw web or paper blocks, with the history usable only for resolving what the new question refers to and avoiding repetition.
+3. **The hallucination guard is untouched.** An empty corpus still bails even when history is available — the model must never answer from memory when the sources are missing. Covered by a test.
+
+Also: history is capped at the last 3 turns (`MAX_TURNS`), the Synthesizer now receives prior questions with a do-not-repeat rule, and the client sends one structured entry per turn instead of two `{role, content}` pairs — which also fixed a wart where the assistant entry was `JSON.stringify(summary)`, wrapping the text in literal escaped quotes.
+
+**Results — two of three goals met.**
+
+*Referent resolution works.* Asked "Why do those studies disagree so sharply?" as a follow-up — a question with no referent at all without history — the Critic correctly resolved "those studies" to the web-versus-academic split and surfaced a contradiction where the opening turn had found none.
+
+*Follow-up repetition is fixed.* 0 of 3 suggested questions echoed an already-asked question, across all three turns of a live thread.
+
+*Duplicate findings are NOT fixed.* On a vague third turn ("Which of those is more reliable?") the Critic re-derived all three consensus points near-verbatim:
+
+| Turn 1 | Turn 3 |
+|---|---|
+| Standing desks effectively reduce sitting time and sedentary behavior during the workday | Standing desks reduce sedentary behavior and sitting time during work |
+| Standing desks may reduce discomfort, particularly neck and shoulder pain… | Standing desks reduce neck and shoulder pain and discomfort… |
+| Standing desks increase energy expenditure during desk work | Standing desks increase energy expenditure during desk work |
+
+The cause is structural, not a prompt-tuning problem. A follow-up still runs the *discovery* prompt — "find the consensus and contradictions in this corpus" — so re-deriving the same findings is the instruction being followed correctly. Suppression by instruction is fighting the task definition. The fix is to branch the prompt on `needs_fetch` as well as the route: a first turn does discovery, a follow-up does interrogation ("answer this specific question against this corpus, given what is already established"). Same node, two prompts. Not done here.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:

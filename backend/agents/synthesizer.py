@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict
+from agents.history import prior_questions
 from agents.llm import FallbackLLM
 from graph.state import TarkaState
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -81,10 +82,19 @@ def synthesizer_node(state: TarkaState) -> dict:
         "   'The contradiction shows X, so what...'. Just ask the question.\n"
         "4. Questions must be specific to the actual findings — not generic. Reference specific claims, papers, or contradictions found in the data.\n"
         "5. If consensus and contradictions are both empty, generate questions that would help find better sources or reframe the query.\n"
+        "6. ALREADY ASKED lists questions from earlier in this thread. Do NOT repeat\n"
+        "   or closely paraphrase any of them — the user has already seen those.\n"
+    )
+
+    asked = prior_questions(state.get("conversation_history", []))
+    asked_block = (
+        "Already asked (do not repeat):\n" + "\n".join(f"- {q}" for q in asked) + "\n\n"
+        if asked else ""
     )
 
     human_payload = (
         f"Original Query: {user_query}\n\n"
+        f"{asked_block}"
         f"Overall Summary: {critic_summary}\n\n"
         f"Consensus Points: {consensus_list}\n\n"
         f"Contradiction Points: {contradiction_list}"

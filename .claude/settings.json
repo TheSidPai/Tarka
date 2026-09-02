@@ -68,7 +68,10 @@
       "Bash(curl -s -o /dev/null -w \"5173=%{http_code}  \" http://localhost:5173/)",
       "Bash(curl -s -o /dev/null -w \"5173=%{http_code}\\\\n\" http://localhost:5173/)",
       "Bash(echo \"lint=$?\")",
-      "Bash(curl -s -o /dev/null -w \"favicon=%{http_code}\\\\n\" http://localhost:5173/favicon.svg)"
+      "Bash(curl -s -o /dev/null -w \"favicon=%{http_code}\\\\n\" http://localhost:5173/favicon.svg)",
+      "Bash(PYTHONPATH=. timeout 120 ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_history.py\")",
+      "Bash(node \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/thread3.mjs\")",
+      "Bash(node \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/dupcheck.mjs\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\TheSidPai\\.claude"
