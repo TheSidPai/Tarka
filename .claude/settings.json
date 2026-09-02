@@ -31,7 +31,15 @@
       "Bash(./.venv/Scripts/python.exe -m pip check)",
       "Bash(./.venv/Scripts/python.exe -m pip show langchain-core langchain langgraph langchain-anthropic tavily-python)",
       "Bash(docker version *)",
-      "Bash(timeout 280 ./.venv/Scripts/python.exe -m pip install --dry-run --ignore-installed -r requirements.txt)"
+      "Bash(timeout 280 ./.venv/Scripts/python.exe -m pip install --dry-run --ignore-installed -r requirements.txt)",
+      "Bash(ls \"C:/Users/TheSidPai/.claude/projects/c--Users-TheSidPai-Tarka/memory/\" && echo \"--- MEMORY.md ---\" && cat \"C:/Users/TheSidPai/.claude/projects/c--Users-TheSidPai-Tarka/memory/MEMORY.md\" 2>/dev/null || echo \"\\(no MEMORY.md yet\\)\")",
+      "Read(//c/Users/TheSidPai/.claude/projects/c--Users-TheSidPai-Tarka/memory/**)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/e2e.py\" \"Do standing desks improve productivity?\")",
+      "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/e2e_followup.py\")",
+      "Bash(PYTHONPATH=. ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/probe_synth.py\")",
+      "Bash(PYTHONPATH=. ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_synth.py\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\TheSidPai\\.claude"

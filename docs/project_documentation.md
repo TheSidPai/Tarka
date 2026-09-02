@@ -1249,6 +1249,29 @@ The upgrade also makes `chunks_per_source` (1–3, ~500 chars each) work as a vo
 
 ---
 
+### 2026-09-02 — Synthesizer: stop asking the LLM to echo data Python already has
+
+Found by running the full stack in Docker rather than by reading code. On a follow-up turn the request died with:
+
+```
+1 validation error for TarkaResponseSchema
+source_count  Field required [type=missing]
+```
+
+The model had silently dropped a required field from its structured output, and the exception reached the UI as an `error` event — the user got nothing.
+
+**Root cause.** `TarkaResponseSchema` asked the LLM to return six fields, but five of them (`query`, `summary`, `consensus`, `contradictions`, `source_count`) were *already computed in Python* before the call. Only `suggested_followups` needs a model at all. Asking it to copy large consensus and contradiction arrays back through a strict schema was pure downside, and under a big payload it started omitting fields — the same schema fatigue the Critic hit on Day 4, still present one node downstream. The claim above that the Synthesizer is safe because it "performs zero reasoning" was half right: it does no reasoning, but it was still being asked to *transcribe*, and that is where it broke.
+
+**The fix.** A minimal `FollowUpSchema` with one field is now the only thing `with_structured_output()` is pointed at. The payload is assembled in Python and validated against the unchanged `TarkaResponseSchema` locally, so the UI contract is identical and the shape is still type-checked — it just is not the model's job to fill it in. A failed or empty generation falls back to `_fallback_followups()`, which builds questions from the contradiction topics and consensus points already in state, so the UI always has chips to render and a follow-up outage can no longer sink an otherwise complete response.
+
+**Verification.** The exact case that failed 5/5 before now passes 5/5 against the live API. Stubbed tests cover the degradation paths — LLM raising, returning an empty list, returning seven questions (truncated to three), and no findings at all — asserting on every run that the payload contains all six keys, that `consensus`, `contradictions` and `summary` pass through byte-identical, and that `source_count` matches the real source lengths. That data-integrity assertion is newly meaningful: there is no longer a model in that path to paraphrase anything.
+
+**Unplanned live validation.** During the re-run Anthropic returned `529 Overloaded` for several minutes. Both of the day's earlier fixes behaved exactly as designed without being prompted: the Critic soft-degraded to `"Critic analysis failed."` with an explicit log line instead of crashing out of the node, and the Synthesizer served fallback follow-ups with a complete payload instead of dying on a `ValidationError`. The user still received a well-formed response and a `done` event. A clean successful full-pipeline run after the fix is therefore still outstanding — the offline and direct-API verification above stands, but the last end-to-end attempts were all absorbed by the upstream outage.
+
+**Also observed while running.** Contradiction counts are not stable run to run (`intermittent fasting` gave 1, then 0; `standing desks` gave 0 where the README table says 1) — at the Critic's `temperature=0.4` these are samples, not measurements. And the follow-up speedup measured 17–35%, against the table's implied ~24%, with the scouts costing only ~2–4s of a ~12–23s run. The README performance table should be re-measured over several runs per query before being quoted.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:
