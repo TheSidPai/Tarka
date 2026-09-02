@@ -36,17 +36,38 @@
   --card-bg: #ffffff;
 }
 
+/* Typeface roles: sans for UI chrome, serif for anything meant to be read
+   as prose — summaries, questions, claims. */
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+}
+
 /* 4. Global CSS Overrides */
-* { 
-  box-sizing: border-box; 
-  margin: 0; 
-  padding: 0; 
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   min-height: 100vh;
   transition: background 0.2s, color 0.2s;
+}
+
+/* Counts and metrics shouldn't jitter as they change */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Turns rise into place as they're appended */
+@keyframes turn-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.turn-in { animation: turn-in 0.35s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-in { animation: none; }
 }

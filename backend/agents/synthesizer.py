@@ -27,7 +27,7 @@ class FollowUpSchema(BaseModel):
     schema fatigue the Critic hit — the fix is the same, only ask the model
     for what it alone can produce.
     """
-    suggested_followups: List[str] = Field(description="Exactly 3 follow-up questions.")
+    suggested_followups: List[str] = Field(description="Exactly 3 short follow-up questions, at most 15 words each.")
 
 # --- LLM INITIALIZATION ---
 # Anthropic primary, Gemini fallback — see agents/llm.py. The schema is bound
@@ -75,8 +75,12 @@ def synthesizer_node(state: TarkaState) -> dict:
         "You generate follow-up research questions for a cross-examination engine.\n"
         "CRITICAL INSTRUCTIONS:\n"
         "1. You MUST generate exactly 3 questions.\n"
-        "2. Questions must be specific to the actual findings — not generic. Reference specific claims, papers, or contradictions found in the data.\n"
-        "3. If consensus and contradictions are both empty, generate questions that would help find better sources or reframe the query.\n"
+        "2. Each question MUST be at most 15 words. They are rendered as clickable\n"
+        "   prompts in a UI, so they must be short enough to scan at a glance.\n"
+        "3. Ask the question directly. Do NOT restate the findings first — no\n"
+        "   'The contradiction shows X, so what...'. Just ask the question.\n"
+        "4. Questions must be specific to the actual findings — not generic. Reference specific claims, papers, or contradictions found in the data.\n"
+        "5. If consensus and contradictions are both empty, generate questions that would help find better sources or reframe the query.\n"
     )
 
     human_payload = (

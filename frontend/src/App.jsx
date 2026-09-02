@@ -10,66 +10,104 @@ function newTurn(id, query) {
   return { id, query, status: [], synthesis: null, error: null, loading: true };
 }
 
-function QuestionHeader({ query, index }) {
+/* Each turn sits against a rail: a numbered node with a hairline running down
+   through the answer, so the page reads as one thread rather than stacked
+   cards separated by empty space. */
+function TurnRow({ index, isLast, children }) {
   return (
     <div
+      className="turn-in"
       style={{
-        maxWidth: 720,
-        margin: "40px auto 0",
+        maxWidth: 812,
+        margin: "0 auto",
         padding: "0 24px",
-        display: "flex",
-        alignItems: "baseline",
-        gap: 12,
+        display: "grid",
+        gridTemplateColumns: "26px 1fr",
+        columnGap: 18,
       }}
     >
-      <span
-        style={{
-          fontSize: 12,
-          color: "var(--text-secondary)",
-          border: "1px solid var(--border)",
-          borderRadius: 6,
-          padding: "2px 7px",
-          flexShrink: 0,
-        }}
-      >
-        {index + 1}
-      </span>
-      <h2
-        style={{
-          fontSize: 19,
-          fontWeight: 600,
-          color: "var(--text-primary)",
-          lineHeight: 1.4,
-          margin: 0,
-        }}
-      >
-        {query}
-      </h2>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <span
+          className="tnum"
+          style={{
+            width: 26,
+            height: 26,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 11,
+            color: "var(--text-secondary)",
+            border: "1px solid var(--border)",
+            background: "var(--bg-primary)",
+            borderRadius: 999,
+            flexShrink: 0,
+            marginTop: 34,
+          }}
+        >
+          {index + 1}
+        </span>
+        <div
+          style={{
+            flex: 1,
+            width: 1,
+            marginTop: 10,
+            // The last rail fades out instead of stopping dead.
+            background: isLast
+              ? "linear-gradient(var(--border), transparent)"
+              : "var(--border)",
+          }}
+        />
+      </div>
+      <div style={{ minWidth: 0, paddingBottom: isLast ? 24 : 56 }}>{children}</div>
     </div>
+  );
+}
+
+function QuestionHeader({ query, isFollowUp }) {
+  return (
+    <h2
+      style={{
+        fontFamily: "var(--font-serif)",
+        // Follow-ups are answers to the turn above, so they sit quieter than
+        // the question that opened the thread.
+        fontSize: isFollowUp ? 18 : 24,
+        fontWeight: 600,
+        color: "var(--text-primary)",
+        lineHeight: 1.35,
+        margin: "32px 0 0",
+        letterSpacing: "-0.01em",
+      }}
+    >
+      {isFollowUp && (
+        <span style={{ color: "var(--text-secondary)", marginRight: 8, fontWeight: 400 }}>
+          ↳
+        </span>
+      )}
+      {query}
+    </h2>
   );
 }
 
 function ErrorBanner({ message }) {
   return (
-    <div style={{ maxWidth: 720, margin: "24px auto 0", padding: "0 24px" }}>
-      <div
-        style={{
-          padding: "16px 20px",
-          borderRadius: 10,
-          border: "1px solid var(--contradiction-border)",
-          background: "var(--contradiction-bg)",
-          fontSize: 14,
-          color: "var(--text-primary)",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <span style={{ color: "var(--contradiction-border)" }}>✕</span>
-        {message === "Failed to fetch"
-          ? "Backend unreachable. Make sure the server is running on port 8000."
-          : message}
-      </div>
+    <div
+      style={{
+        marginTop: 20,
+        padding: "16px 20px",
+        borderRadius: 10,
+        border: "1px solid var(--contradiction-border)",
+        background: "var(--contradiction-bg)",
+        fontSize: 14,
+        color: "var(--text-primary)",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      <span style={{ color: "var(--contradiction-border)" }}>✕</span>
+      {message === "Failed to fetch"
+        ? "Backend unreachable. Make sure the server is running on port 8000."
+        : message}
     </div>
   );
 }
@@ -221,21 +259,25 @@ export default function App() {
         const isLast = i === turns.length - 1;
         return (
           <div key={turn.id} ref={isLast ? lastTurnRef : null}>
-            <QuestionHeader query={turn.query} index={i} />
+            <TurnRow index={i} isLast={isLast}>
+              <QuestionHeader query={turn.query} isFollowUp={i > 0} />
 
-            {turn.loading && !turn.synthesis && <StatusBar messages={turn.status} />}
-            {turn.synthesis && <SynthesisPanel synthesis={turn.synthesis} />}
-            {turn.error && <ErrorBanner message={turn.error} />}
+              {turn.loading && !turn.synthesis && <StatusBar messages={turn.status} />}
+              {turn.synthesis && (
+                <SynthesisPanel synthesis={turn.synthesis} sources={corpus} />
+              )}
+              {turn.error && <ErrorBanner message={turn.error} />}
 
-            {/* Chips only under the newest answer — offering them on older
-                turns would branch the thread, which conversation_history
-                (a flat list) can't represent. */}
-            {isLast && !turn.loading && turn.synthesis && (
-              <FollowUpChips
-                followups={turn.synthesis.suggested_followups}
-                onSelect={handleSearch}
-              />
-            )}
+              {/* Chips only under the newest answer — offering them on older
+                  turns would branch the thread, which conversation_history
+                  (a flat list) can't represent. */}
+              {isLast && !turn.loading && turn.synthesis && (
+                <FollowUpChips
+                  followups={turn.synthesis.suggested_followups}
+                  onSelect={handleSearch}
+                />
+              )}
+            </TurnRow>
           </div>
         );
       })}
