@@ -1172,8 +1172,8 @@ These change behaviour and belong in their own commits, not in a cleanup pass:
 
 1. **SSE frame reassembly (`frontend/src/App.jsx`).** — *fixed 2026-09-02, see below.*
 2. **Stuck spinner.** — *fixed 2026-09-02, see below.*
-3. **Misplaced `try` in `critic_twopass.py`.** The `try` wraps only the `.replace()` chain; `base_llm.invoke()` sits above it. A genuine LLM failure therefore escapes the node, while the handler reading `"Critic LLM call failed"` can only fire on a non-string `.content`.
-4. **Post-hoc status text.** `server.py` yields `"Executing {node}..."` while iterating *completed* steps, so the UI reads "Executing critic..." after the critic has finished.
+3. **Misplaced `try` in `critic_twopass.py`.** — *fixed 2026-09-02, see below.*
+4. **Post-hoc status text.** — *fixed 2026-09-02, see below.*
 
 Also left in place deliberately: the unused `critic_node` / `critic_node_split` imports in `graph/graph.py`, and `agents/paper_scout_ss.py`. Both are unreachable, but they document the structured-output and Semantic Scholar approaches that were tried and abandoned — which is the argument the README is built on.
 
@@ -1195,7 +1195,23 @@ Re-running the same simulation against the new loop: 0 events lost across all 31
 
 **Spinner.** `setLoading(false)` was called in three places — the `done` event, the `error` branch, and the `catch` — which covered every path except the ones that matter: a dropped connection, a dead server, or a `done` event lost to the bug above. It now lives in a single `finally` on the existing `try`, which runs on normal completion, on a thrown error, and on the early `return` in the error branch. Strictly a superset of the old behaviour, and no longer dependent on any particular event arriving.
 
-Still deferred: items 3 and 4 above.
+Still deferred at the time of writing: items 3 and 4 — both since fixed, below.
+
+### 2026-09-02 — Critic failure handling and status wording
+
+Closes deferred items 3 and 4. With this, every item raised in the 2026-09-01 pass is resolved.
+
+**Critic error handling (`backend/agents/critic_twopass.py`).** The `try`/`except` intended to catch a failed model call began *after* the call, wrapping only the markdown-stripping `.replace()` chain. So a real API failure — bad key, rate limit, timeout — escaped the node entirely, while the handler printing `"Critic LLM call failed"` could only ever fire on a non-string `.content`. The invoke now sits inside the guard.
+
+This is a deliberate behaviour change, and the choice worth recording is *soft degrade over hard failure*. Previously a Critic API failure propagated out of the graph and reached the user as a red error box with nothing else. Now the node returns `"Critic analysis failed."` with empty consensus and contradiction arrays, the graph continues to the Synthesizer, and the user gets a normal response whose summary says the analysis failed. That matches the shape of the existing hallucination-guard early returns, so failure handling in this node is now uniform. Because a soft degrade is quieter, the log line was made explicit — `[CRITIC] LLM call failed: {type}: {message}` — so a dead key is still obvious server-side.
+
+Also added: `.content` returned as a list of content blocks is joined into a string rather than crashing on `.replace()`. With no tools bound Anthropic returns a plain string, so this is robustness for future tool use, not a bug being hit today — but it *was* the only thing the original misplaced `except` could actually catch, so handling it explicitly is what frees the `except` to do its real job.
+
+Verified by stubbing the LLM (`ChatAnthropic` is a pydantic v1 model and rejects attribute assignment, so the whole `base_llm` object is swapped rather than `.invoke` patched) across five paths: a raising API call degrades correctly; normal string content parses to 1 consensus + 1 contradiction; list-of-blocks content parses identically; ```` ```xml ````-fenced output is still cleaned; and the hallucination guard still short-circuits before any LLM call when `paper_results` is empty.
+
+**Status wording (`backend/server.py`).** Messages read `"{Node} complete"` instead of `"Executing {node}..."`. `astream()` yields a step only once a node has finished, so the present tense was describing work that was already done — the UI showed "Executing critic..." after the critic had returned.
+
+The alternative was migrating to `astream_events()`, which does emit `on_chain_start` before each node runs; a probe confirmed it works on the pinned `langgraph 0.1.4` / `langchain-core 0.2.43` (v1 and v2 identical), with real node names mixed among internal `LangGraph`, `__start__` and `ChannelWrite<...>` entries that would need filtering. It was not taken: the final payload currently keys off `astream()`'s `{node: update}` shape and would have to move to `on_chain_end`'s `data.output`, restructuring the SSE generator that had just been fixed and verified — a poor trade for cosmetic wording on messages that are on screen for about 20 seconds. If a slower node ever makes progressive status genuinely useful, that migration is the right change to make then, on its own.
 
 ---
 

@@ -17,7 +17,11 @@
       "Read(//c/Users/TheSidPai/.claude/**)",
       "Bash(python -c \"import json;json.load\\(open\\(r'C:\\\\Users\\\\TheSidPai\\\\.claude\\\\settings.json'\\)\\);print\\('user settings.json OK'\\)\")",
       "Bash(npm run *)",
-      "Bash(node \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/sse-test.mjs\")"
+      "Bash(node \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/sse-test.mjs\")",
+      "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/probe_events.py\")",
+      "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_critic.py\")",
+      "Bash(PYTHONPATH=. ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_critic.py\")",
+      "Bash(PYTHONPATH=. ./.venv/Scripts/python.exe -c ' *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\TheSidPai\\.claude"

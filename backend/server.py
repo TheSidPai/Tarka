@@ -56,11 +56,13 @@ async def run_research_stream(request: ResearchRequest):
             # step is a dict like {"web_scout": {"web_results": [...]}}
             for node_name, node_update in step.items():
                 
-                # 1. Send a live status update to the frontend UI
+                # 1. Send a status update to the frontend UI. astream() yields a
+                # step once the node has finished, so this is past tense — the
+                # work is already done by the time the message goes out.
                 status_message = {
                     "type": "status",
                     "node": node_name,
-                    "message": f"Executing {node_name.replace('_', ' ')}..."
+                    "message": f"{node_name.replace('_', ' ').capitalize()} complete"
                 }
                 yield f"data: {json.dumps(status_message)}\n\n"
                 

@@ -83,17 +83,25 @@ def critic_two_pass_node(state: TarkaState) -> dict:
     
     
 
-    # Execute the single text-generation call
-    raw_xml_report = base_llm.invoke(messages).content
-    
     # ------------------------------------------------------------------
     # PASS 2: NATIVE REGEX PARSING (Bulletproof Extraction)
     # ------------------------------------------------------------------
-    # Clean any accidental markdown backticks the LLM might have generated
+    # The generation call and the cleanup share one guard: a dead API key or a
+    # rate limit must degrade to an empty analysis, not escape the node.
     try:
+        raw_xml_report = base_llm.invoke(messages).content
+
+        # With no tools bound this is a plain string, but Anthropic can return
+        # a list of content blocks — join them rather than crashing on .replace.
+        if isinstance(raw_xml_report, list):
+            raw_xml_report = "".join(
+                block.get("text", "") for block in raw_xml_report if isinstance(block, dict)
+            )
+
+        # Clean any accidental markdown backticks the LLM might have generated
         clean_report = raw_xml_report.replace("```xml", "").replace("```html", "").replace("```", "").strip() # type: ignore
     except Exception as e:
-        print(f"Critic LLM call failed: {e}")
+        print(f"[CRITIC] LLM call failed: {type(e).__name__}: {e}")
         return {
             "overall_summary": "Critic analysis failed.",
             "consensus": [],
