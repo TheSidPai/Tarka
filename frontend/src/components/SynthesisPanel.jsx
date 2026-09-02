@@ -185,6 +185,8 @@ export default function SynthesisPanel({ synthesis, sources }) {
             fontSize: 17,
             color: "var(--text-primary)",
             lineHeight: 1.65,
+            // The card is wide now; prose still wants a readable measure.
+            maxWidth: "74ch",
           }}
         >
           {summary}

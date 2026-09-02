@@ -18,12 +18,12 @@ function TurnRow({ index, isLast, children }) {
     <div
       className="turn-in"
       style={{
-        maxWidth: 812,
+        maxWidth: 1040,
         margin: "0 auto",
-        padding: "0 24px",
+        padding: "0 32px",
         display: "grid",
         gridTemplateColumns: "26px 1fr",
-        columnGap: 18,
+        columnGap: 22,
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -76,6 +76,7 @@ function QuestionHeader({ query, isFollowUp }) {
         lineHeight: 1.35,
         margin: "32px 0 0",
         letterSpacing: "-0.01em",
+        maxWidth: "46ch",
       }}
     >
       {isFollowUp && (

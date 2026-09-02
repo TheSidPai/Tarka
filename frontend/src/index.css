@@ -20,6 +20,10 @@
   --contradiction-border: #4a1a1a;
   --accent: #f0f0f0;
   --card-bg: #141414;
+  --dot: rgba(255, 255, 255, 0.055);
+  --btn-from: #fbfbfb;
+  --btn-to: #dcdcdc;
+  --btn-shadow: rgba(0, 0, 0, 0.45);
 }
 
 :root[data-theme="light"] {
@@ -34,6 +38,10 @@
   --contradiction-border: #d5a8a8;
   --accent: #0e0e0e;
   --card-bg: #ffffff;
+  --dot: rgba(0, 0, 0, 0.075);
+  --btn-from: #2c2c2c;
+  --btn-to: #0e0e0e;
+  --btn-shadow: rgba(0, 0, 0, 0.22);
 }
 
 /* Typeface roles: sans for UI chrome, serif for anything meant to be read
@@ -56,6 +64,31 @@ body {
   font-family: var(--font-sans);
   min-height: 100vh;
   transition: background 0.2s, color 0.2s;
+}
+
+/* A faint dot grid to occupy the side margins. Masked so it fades out
+   behind the reading column — texture at the edges, clean paper under the
+   text. Fixed, so it doesn't travel with the scroll. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
+  background-size: 26px 26px;
+  -webkit-mask-image: linear-gradient(
+    to right, #000 0%, transparent 26%, transparent 74%, #000 100%
+  );
+  mask-image: linear-gradient(
+    to right, #000 0%, transparent 26%, transparent 74%, #000 100%
+  );
+}
+
+/* Content sits above the texture layer */
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 /* Counts and metrics shouldn't jitter as they change */

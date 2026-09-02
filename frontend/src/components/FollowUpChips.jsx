@@ -48,7 +48,7 @@ export default function FollowUpChips({ followups, onSelect }) {
               e.currentTarget.querySelector("[data-arrow]").style.opacity = "0.3"
             }}
           >
-            <span style={{ flex: 1 }}>{f}</span>
+            <span style={{ flex: 1, maxWidth: "80ch" }}>{f}</span>
             <span
               data-arrow
               style={{
