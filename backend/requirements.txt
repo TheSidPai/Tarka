@@ -2,8 +2,10 @@
 langgraph==0.1.4      # Core graph orchestration
 langchain==0.2.5      # Component wrappers and tool abstractions
 langchain-anthropic==0.1.23 # Interface for Claude / structured bindings
-# NOTE: langchain-anthropic must stay <0.2. Later releases require
-# langchain-core>=0.3, which conflicts with langgraph 0.1.4 / langchain 0.2.5.
+langchain-google-genai==1.0.10 # Gemini fallback when Anthropic 529s
+# NOTE: langchain-anthropic must stay <0.2 and langchain-google-genai <2.0.
+# Later releases of either require langchain-core>=0.3, which conflicts with
+# langgraph 0.1.4 / langchain 0.2.5.
 
 # Specialized Search SDKs
 tavily-python==0.8.0  # Clean web claims for agents (needs >=0.7 for search_depth="fast")

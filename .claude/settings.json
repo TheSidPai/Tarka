@@ -39,7 +39,19 @@
       "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/e2e.py\" \"Do standing desks improve productivity?\")",
       "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/e2e_followup.py\")",
       "Bash(PYTHONPATH=. ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/probe_synth.py\")",
-      "Bash(PYTHONPATH=. ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_synth.py\")"
+      "Bash(PYTHONPATH=. ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_synth.py\")",
+      "Bash(./.venv/Scripts/python.exe -m pip install --quiet \"langchain-google-genai==1.0.10\")",
+      "Bash(./.venv/Scripts/python.exe -m pip show langchain-google-genai google-generativeai)",
+      "Bash(./.venv/Scripts/python.exe -m pip show langchain-core langgraph)",
+      "Bash(PYTHONPATH=. timeout 90 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONPATH=. timeout 100 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONPATH=. timeout 120 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONPATH=. timeout 150 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONPATH=. timeout 120 ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_fallback.py\")",
+      "Bash(PYTHONPATH=. timeout 120 ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_critic.py\")",
+      "Bash(PYTHONPATH=. timeout 120 ./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/test_synth.py\")",
+      "Bash(PYTHONPATH=. timeout 60 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(PYTHONPATH=. ANTHROPIC_API_KEY=sk-ant-invalid-key-to-force-fallback timeout 280 ./.venv/Scripts/python.exe -c ' *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\TheSidPai\\.claude"

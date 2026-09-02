@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict
-from langchain_anthropic import ChatAnthropic
+from agents.llm import FallbackLLM
 from graph.state import TarkaState
 from langchain_core.messages import SystemMessage, HumanMessage
 
@@ -30,11 +30,9 @@ class FollowUpSchema(BaseModel):
     suggested_followups: List[str] = Field(description="Exactly 3 follow-up questions.")
 
 # --- LLM INITIALIZATION ---
-base_llm = ChatAnthropic(
-    model="claude-haiku-4-5-20251001", # type: ignore
-    temperature=0.3
-) # type: ignore
-followup_generator = base_llm.with_structured_output(FollowUpSchema) # type: ignore
+# Anthropic primary, Gemini fallback — see agents/llm.py. The schema is bound
+# to every provider in the chain, so a fallback returns the same type.
+followup_generator = FallbackLLM(temperature=0.3, schema=FollowUpSchema)
 
 
 def _fallback_followups(contradictions: list, consensus: list) -> List[str]:

@@ -1,13 +1,11 @@
 import re
-from langchain_anthropic import ChatAnthropic
+from agents.llm import FallbackLLM
 from graph.state import TarkaState
 from langchain_core.messages import SystemMessage, HumanMessage
 
 # --- LLM INITIALIZATION ---
-base_llm = ChatAnthropic(
-    model="claude-haiku-4-5-20251001", # type: ignore
-    temperature=0.4
-) # type: ignore
+# Anthropic primary, Gemini fallback — see agents/llm.py.
+base_llm = FallbackLLM(temperature=0.4)
 
 # --- HELPER PARSER FUNCTION ---
 def extract_tag(text: str, tag: str) -> str:

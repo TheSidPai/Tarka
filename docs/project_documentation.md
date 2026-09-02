@@ -1272,6 +1272,26 @@ The model had silently dropped a required field from its structured output, and 
 
 ---
 
+### 2026-09-02 — Gemini fallback: surviving a provider outage
+
+Motivated directly by the 529s in the entry above. A single-provider dependency meant several minutes of Anthropic capacity trouble degraded every request, however well each node handled it individually.
+
+**Design.** `backend/agents/llm.py` adds `FallbackLLM`, a drop-in with the same `.invoke(messages)` surface as a LangChain chat model. It walks a provider chain — `claude-haiku-4-5-20251001`, then `gemini-3.5-flash` — returning the first success and raising only if all fail. Both reasoning nodes construct one instead of a bare `ChatAnthropic`, so the call sites are unchanged. Passing `schema=` binds structured output to *every* provider, so a fallback returns the same Pydantic type.
+
+The chain is built lazily on first use, and Gemini is appended only when `GEMINI_API_KEY` is present — the fallback is optional and its absence is logged once, not raised. Fallback triggers on **any** exception rather than only 5xx: a timeout or a schema validation failure is equally fatal to the request, and the second provider costs nothing while the first is healthy.
+
+**The pin problem, and why 1.0.10.** `langchain-google-genai` is subject to the same `langchain-core<0.3` ceiling as `langchain-anthropic`. Resolving the full requirements file against candidate versions showed `2.0.11` conflicts outright while **`1.0.10` holds `langchain-core` at `0.2.43`**. That version is from mid-2024, so whether it could even reach a 2026 model was the real risk — it was tested, not assumed. Listing the API's models confirmed `gemini-3.5-flash` is served on both `v1` and `v1beta`, and the old client both generates text and does structured output against it. It does emit a harmless `Key 'title' is not supported in schema, ignoring` warning when binding a Pydantic schema.
+
+One trap worth recording: the client's default retry behaviour makes an unreachable model look like a hang — an early probe across three model names blocked for over four minutes with no output. `timeout=60, max_retries=1` are set explicitly for this reason.
+
+**Verification.** Stubbed tests cover the chain: primary healthy (fallback never invoked), primary failing (Gemini serves), both failing (one error naming both), and chain composition with and without the key. The decisive test was live — with `ANTHROPIC_API_KEY` set to an invalid value, the 401 was logged and **Gemini produced a valid XML analysis that the regex parser extracted cleanly**, correctly identifying the contradiction between the web's 46% productivity claim and the paper's null result, then generated three specific follow-ups through structured output. The image was rebuilt and a full end-to-end run served by Anthropic logged zero fallback events, confirming no overhead on the healthy path.
+
+That run was also the first clean full-pipeline success since the Synthesizer fix, and a noticeably better one: 2 consensus and **1 contradiction** on a query that returned 0 contradictions earlier in the day, correctly flagging the widely-cited 46% figure as methodologically disputed.
+
+**Note on model choice.** `gemini-3.5-flash` was chosen as specified. Newer Flash generations (`gemini-3.6-flash`, `gemini-3.7-flash`) are available on the same key and are a one-constant change in `llm.py` if worth benchmarking.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:
