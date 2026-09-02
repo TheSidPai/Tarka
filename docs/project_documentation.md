@@ -1364,6 +1364,35 @@ One structural detail this required: the sources list is now **always mounted** 
 
 ---
 
+### 2026-09-03 — Discovery vs interrogation: the Critic gets two prompts
+
+The residual from the history change, now closed. Passing prior findings in stopped the Synthesizer repeating questions and let the Critic resolve references, but a vague third turn still re-derived all three consensus points near-verbatim.
+
+**Why instruction-based suppression could not work.** A follow-up was running the *discovery* prompt — "thoroughly analyze the raw text blocks, report every substantive point of agreement and disagreement". Re-deriving the same findings is that instruction being followed correctly. A "don't repeat yourself" rule bolted on top was fighting the task definition, and the task definition won. The problem was never prompt wording; it was asking the wrong question.
+
+**The change.** `critic_two_pass_node` now branches its system prompt on `needs_fetch`, the same flag the orchestrator already uses for routing:
+
+- **Discovery** (fresh query, scouts ran): survey the corpus, report everything supportable. Unchanged behaviour.
+- **Interrogation** (follow-up, scouts skipped): the corpus is already mined and the findings are listed above. Answer *this* question using the corpus as evidence. Emit a `consensus_point` or `contradiction_point` only if it bears directly on the question *and* was not already reported. Restating an earlier finding in different words is defined as a failure, and emitting no tags at all is explicitly correct when the corpus offers nothing new — a well-argued summary alone is a complete answer.
+
+Both modes emit the identical tag schema, so the regex parser, `TarkaState` and the UI contract are untouched. A test asserts that schema equivalence, so the two prompts cannot drift apart.
+
+**Results.** Same three-turn thread as the previous entry, same questions:
+
+| | before | after |
+|---|---|---|
+| Turn 3 consensus points repeated from earlier turns | **3 of 3** | **0 of 0** |
+| Turn 2 findings | 0 consensus, 1 contradiction | 0 consensus, 2 contradictions |
+| Turn 3 findings | 3 recycled consensus, 0 contradictions | 0 consensus, 2 contradictions |
+
+Follow-ups now produce *new* contradictions rather than recycling the opening survey — turn 2 identified the methodological split behind the disagreement, turn 3 the reliability asymmetry between source types.
+
+One regression appeared and was fixed in the same pass: the first interrogation prompt produced summaries that narrated the question before answering it ("The user asks which source type is more reliable regarding…"). An added rule — answer in the first sentence, never restate the question, never refer to "the user" — moved the output to "Academic papers are more reliable than web sources for claims about standing desk productivity."
+
+**UI.** A follow-up that legitimately finds nothing new is now a correct outcome rather than a failure, so the panel adapts: the summary is labelled "Answer" instead of "Overview", and the empty state reads "No new consensus or contradictions beyond what's above" rather than "Try a more contested topic". Driven off the turn index in `App.jsx`; no payload change.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:

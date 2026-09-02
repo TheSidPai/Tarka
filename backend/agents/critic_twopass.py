@@ -8,6 +8,80 @@ from langchain_core.messages import SystemMessage, HumanMessage
 # Anthropic primary, Gemini fallback — see agents/llm.py.
 base_llm = FallbackLLM(temperature=0.4)
 
+# --- PROMPTS ---
+# Both modes emit the identical tag schema, so the regex parser below and the
+# UI contract are unaffected by which one runs.
+_XML_STRUCTURE = (
+    "REQUIRED STRUCTURE:\n"
+    "<analysis>\n"
+    "  <summary>See the summary rule above.</summary>\n"
+    "\n"
+    "  <consensus_point>\n"
+    "    <point>Core technical concept where both align</point>\n"
+    "    <web_quote>Exact snippet from web</web_quote>\n"
+    "    <source_url>URL</source_url>\n"
+    "    <paper_quote>Exact snippet from paper</paper_quote>\n"
+    "    <source_paper_id>Paper ID</source_paper_id>\n"
+    "  </consensus_point>\n"
+    "\n"
+    "  <contradiction_point>\n"
+    "    <conflict_topic>Specific focus of disagreement</conflict_topic>\n"
+    "    <web_claim>Web's stance</web_claim>\n"
+    "    <web_quote>Exact snippet from web</web_quote>\n"
+    "    <source_url>URL</source_url>\n"
+    "    <paper_claim>Paper's opposing stance</paper_claim>\n"
+    "    <paper_quote>Exact snippet from paper</paper_quote>\n"
+    "    <source_paper_id>Paper ID</source_paper_id>\n"
+    "  </contradiction_point>\n"
+    "</analysis>"
+)
+
+_SHARED_RULES = (
+    "1. Do NOT use Markdown formatting. Do NOT include conversational filler.\n"
+    "2. Only output the requested tags and their contents.\n"
+    "3. If you find no consensus or no contradictions, simply omit those specific tags.\n"
+    "4. Output 'N/A' for any missing URLs or Paper IDs.\n"
+    "5. An EARLIER IN THIS THREAD section may appear below. It is NOT evidence.\n"
+    "   It records conclusions you already drew, not sources. Never quote it, cite\n"
+    "   it, or treat any finding in it as established fact. EVERY quote you output\n"
+    "   must come from the RAW SURFACE WEB CLAIMS or RAW ACADEMIC PAPERS blocks.\n"
+)
+
+# Turn 1: nothing has been examined yet. Survey the corpus.
+_DISCOVERY_RULES = (
+    "You are an adversarial expert research evaluator cross-examining public claims against peer-reviewed evidence.\n"
+    "Your objective is to thoroughly analyze the raw text blocks and output your findings using STRICT XML tags.\n\n"
+    "RULES:\n"
+    + _SHARED_RULES +
+    "6. <summary> is a 2-3 sentence overview of the general trend across both sides.\n"
+    "7. Report every substantive point of agreement and disagreement you can support\n"
+    "   with quotes from both sides.\n\n"
+)
+
+# Turn 2+: the corpus is already mined and the findings are listed above.
+# The task is to answer one question, not to survey again.
+_INTERROGATION_RULES = (
+    "You are an adversarial expert research evaluator answering a FOLLOW-UP question\n"
+    "about a corpus you have ALREADY analysed. This is not a fresh survey. The sources\n"
+    "below have been examined and the findings so far are listed in EARLIER IN THIS\n"
+    "THREAD. The user is now asking one specific thing about them.\n\n"
+    "RULES:\n"
+    + _SHARED_RULES +
+    "6. <summary> must DIRECTLY ANSWER the user's question, using the corpus as evidence.\n"
+    "   Do not write a general overview of the topic — that has already been given.\n"
+    "   Answer in the first sentence. Never restate the question, never narrate what is\n"
+    "   being asked, and never refer to 'the user'. Write the answer, not a preamble.\n"
+    "7. Emit <consensus_point> or <contradiction_point> ONLY for findings that BOTH\n"
+    "   (a) bear directly on this specific question, AND (b) were NOT already reported\n"
+    "   in EARLIER IN THIS THREAD.\n"
+    "8. Restating an earlier finding in different words is a FAILURE. If the corpus\n"
+    "   offers nothing new for this question, emit no such tags at all — a well-argued\n"
+    "   <summary> on its own is a complete and correct answer here.\n"
+    "9. An earlier finding may be re-reported ONLY if this question puts genuinely new\n"
+    "   evidence behind it. In that case the <point> must state what is new.\n\n"
+)
+
+
 # --- HELPER PARSER FUNCTION ---
 def extract_tag(text: str, tag: str) -> str:
     """Safely extracts text between XML tags using Regex."""
@@ -37,46 +111,16 @@ def critic_two_pass_node(state: TarkaState) -> dict:
     
     # ------------------------------------------------------------------
     # PASS 1: GENERATION (Tag-Based Structuring)
-    # ------------------------------------------------------------------
+    # A follow-up runs against a corpus that has already been mined. Asking it
+    # the discovery question again ("what do these sources disagree about?")
+    # makes re-deriving the same findings the correct answer — which is why
+    # instructing it not to repeat itself never worked. Different job, different
+    # prompt; the output schema is identical so parsing and the UI don't change.
+    is_followup = not state.get("needs_fetch", True)
     system_instruction = (
-        "You are an adversarial expert research evaluator cross-examining public claims against peer-reviewed evidence.\n"
-        "Your objective is to thoroughly analyze the raw text blocks and output your findings using STRICT XML tags.\n\n"
-        "RULES:\n"
-        "1. Do NOT use Markdown formatting. Do NOT include conversational filler.\n"
-        "2. Only output the requested tags and their contents.\n"
-        "3. If you find no consensus or no contradictions, simply omit those specific tags.\n"
-        "4. Output 'N/A' for any missing URLs or Paper IDs.\n"
-        "5. An EARLIER IN THIS THREAD section may appear below. It is NOT evidence.\n"
-        "   It records conclusions you already drew, not sources. Never quote it, cite\n"
-        "   it, or treat any finding in it as established fact. EVERY quote you output\n"
-        "   must come from the RAW SURFACE WEB CLAIMS or RAW ACADEMIC PAPERS blocks.\n"
-        "   Use it for two things only: resolving what the user's new question refers\n"
-        "   to, and avoiding re-reporting findings that were already covered.\n"
-        "6. Do not withhold a genuinely relevant finding merely because it resembles an\n"
-        "   earlier one. If the new question puts it in a different light, report it.\n\n"
-        "REQUIRED STRUCTURE:\n"
-        "<analysis>\n"
-        "  <summary>Write a 2-3 sentence overview of the general trend here.</summary>\n"
-        "\n"
-        "  <consensus_point>\n"
-        "    <point>Core technical concept where both align</point>\n"
-        "    <web_quote>Exact snippet from web</web_quote>\n"
-        "    <source_url>URL</source_url>\n"
-        "    <paper_quote>Exact snippet from paper</paper_quote>\n"
-        "    <source_paper_id>Paper ID</source_paper_id>\n"
-        "  </consensus_point>\n"
-        "\n"
-        "  <contradiction_point>\n"
-        "    <conflict_topic>Specific focus of disagreement</conflict_topic>\n"
-        "    <web_claim>Web's stance</web_claim>\n"
-        "    <web_quote>Exact snippet from web</web_quote>\n"
-        "    <source_url>URL</source_url>\n"
-        "    <paper_claim>Paper's opposing stance</paper_claim>\n"
-        "    <paper_quote>Exact snippet from paper</paper_quote>\n"
-        "    <source_paper_id>Paper ID</source_paper_id>\n"
-        "  </contradiction_point>\n"
-        "</analysis>"
-    )
+        _INTERROGATION_RULES if is_followup else _DISCOVERY_RULES
+    ) + _XML_STRUCTURE
+    print(f"[CRITIC] Mode: {'interrogation (follow-up)' if is_followup else 'discovery (fresh)'}")
 
     # Findings only, capped to the last few turns — see agents/history.py.
     prior = format_prior_findings(state.get("conversation_history", []))

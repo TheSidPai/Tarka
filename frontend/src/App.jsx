@@ -352,7 +352,11 @@ export default function App() {
               {turn.loading && !turn.synthesis && <StatusBar messages={turn.status} />}
               {turn.synthesis && (
                 <>
-                  <SynthesisPanel synthesis={turn.synthesis} sources={corpus} />
+                  <SynthesisPanel
+                    synthesis={turn.synthesis}
+                    sources={corpus}
+                    isFollowUp={i > 0}
+                  />
                   <TurnActions turn={turn} sources={corpus} />
                 </>
               )}

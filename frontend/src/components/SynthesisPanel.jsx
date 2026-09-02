@@ -143,7 +143,7 @@ function SourceList({ web, papers }) {
   );
 }
 
-export default function SynthesisPanel({ synthesis, sources }) {
+export default function SynthesisPanel({ synthesis, sources, isFollowUp }) {
   const [showSources, setShowSources] = useState(false);
   if (!synthesis) return null;
 
@@ -180,7 +180,10 @@ export default function SynthesisPanel({ synthesis, sources }) {
           }}
         >
           <span>
-            Overview · <span className="tnum">{source_count?.web ?? 0}</span> web ·{" "}
+            {/* A follow-up's summary answers a question rather than
+                surveying the topic, so it isn't an "overview". */}
+            {isFollowUp ? "Answer" : "Overview"} ·{" "}
+            <span className="tnum">{source_count?.web ?? 0}</span> web ·{" "}
             <span className="tnum">{source_count?.papers ?? 0}</span> papers
           </span>
           {canExpand && (
@@ -231,8 +234,9 @@ export default function SynthesisPanel({ synthesis, sources }) {
               textAlign: "center",
             }}
           >
-            No consensus or contradictions found for this query. Try a more
-            contested topic.
+            {isFollowUp
+              ? "No new consensus or contradictions beyond what's above — the answer covers it."
+              : "No consensus or contradictions found for this query. Try a more contested topic."}
           </div>
         )}
 
