@@ -48,10 +48,14 @@ export default function FollowUpChips({ followups, onSelect }) {
               e.currentTarget.querySelector("[data-arrow]").style.opacity = "0.3"
             }}
           >
-            <span style={{ flex: 1, maxWidth: "80ch" }}>{f}</span>
+            <span style={{ maxWidth: "80ch" }}>{f}</span>
+            {/* marginLeft:auto pins the arrow to the right edge of the row
+                rather than letting it trail the end of the text box */}
             <span
               data-arrow
               style={{
+                marginLeft: "auto",
+                paddingLeft: 24,
                 opacity: 0.3,
                 transition: "opacity 0.15s",
                 fontSize: 13,
