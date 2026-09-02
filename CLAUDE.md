@@ -57,7 +57,9 @@ CORS is hardcoded to `http://localhost:5173`, and the frontend's API URL is hard
 
 `graph.py` imports `critic_node` and `critic_node_split` from [critic.py](backend/agents/critic.py) but registers `critic_two_pass_node` as the `"critic"` node. Those two are earlier structured-output attempts, kept deliberately as a record of what failed. Also unused: `backend/agents/paper_scout_ss.py` (Semantic Scholar, replaced by OpenAlex for its better semantic search) — likewise kept on purpose. Don't "clean up" either one.
 
-Every LLM call is `claude-haiku-4-5-20251001` via `langchain_anthropic`; the paper scout uses plain `requests` against OpenAlex. `langchain-anthropic` is pinned to `0.1.23` and must stay `<0.2` — later releases need `langchain-core>=0.3`, which conflicts with the pinned `langgraph==0.1.4` / `langchain==0.2.5`.
+Every LLM call is `claude-haiku-4-5-20251001` via `langchain_anthropic`; the paper scout uses plain `requests` against OpenAlex. `langchain-anthropic` is pinned to `0.1.23` and must stay `<0.2` — later releases need `langchain-core>=0.3`, which conflicts with the pinned `langgraph==0.1.4` / `langchain==0.2.5`. `tavily-python` is unrelated to that ceiling and pinned to `0.8.0`; it must stay `>=0.7` because [web_scout.py](backend/agents/web_scout.py) passes `search_depth="fast"`, which older clients reject.
+
+Tavily's `search_depth` controls snippets extracted *per URL*, not the number of URLs — it's the volume dial, not `max_results`. `fast` yields ~7x the text per source over `basic` at the same 1-credit cost, which is what keeps the web corpus at parity with OpenAlex abstracts so the Critic has comparable evidence on both sides. Don't switch to `include_raw_content`: it returns ~25x the text as raw page dumps, and diluting the Critic's context is the exact failure this project is built to avoid.
 
 ### Frontend
 

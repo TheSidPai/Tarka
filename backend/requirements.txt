@@ -6,7 +6,7 @@ langchain-anthropic==0.1.23 # Interface for Claude / structured bindings
 # langchain-core>=0.3, which conflicts with langgraph 0.1.4 / langchain 0.2.5.
 
 # Specialized Search SDKs
-tavily-python==0.4.0  # Clean web claims for agents
+tavily-python==0.8.0  # Clean web claims for agents (needs >=0.7 for search_depth="fast")
 requests==2.32.5      # Direct OpenAlex REST calls in paper_scout_open_alex
 
 # Environment & Schema Validation

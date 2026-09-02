@@ -1215,6 +1215,40 @@ The alternative was migrating to `astream_events()`, which does emit `on_chain_s
 
 ---
 
+### 2026-09-02 — Web scout depth: closing the evidence asymmetry
+
+The first change aimed at output quality rather than correctness.
+
+**The problem, measured.** The Critic is asked to quote both sides and flag contradictions, but the two scouts were handing it wildly unequal evidence. On `"Do LLMs have rational thinking capabilities?"` with `max_results=15` on each:
+
+| Source | entries | total chars | median/entry |
+|---|---:|---:|---:|
+| Tavily `basic` (old) | 15 | 10,288 | **163** |
+| OpenAlex abstracts | 15 | 20,025 | **1,495** |
+
+A 163-character web snippet is a single sentence — often just a restated headline. There is frequently not enough substance there to contradict a 1,500-character abstract, which plausibly contributed to the low contradiction counts in the README's benchmark table (0.6 average).
+
+**The fix.** `search_depth="fast"` in `web_scout.py`. Tavily's depth setting controls how many relevant snippets it extracts per URL, not how many URLs it returns — so this raises text *per source* without touching `max_results`:
+
+| Config | total | median/entry | credits |
+|---|---:|---:|---:|
+| `basic` (old) | 10,288 | 163 | 1 |
+| **`fast` (new)** | **17,643** | **1,151** | **1** |
+| `advanced` | 18,753 | 1,581 | 2 |
+| `basic` + `raw_content` | 261,247 | 10,551 | 1 |
+
+`fast` was chosen over `advanced` deliberately: it delivers ~94% of the text for **half the credits**. `include_raw_content` was rejected outright — at ~25x the volume it is full page dumps including nav bars and cookie banners, and diluting the context is precisely the failure mode this project exists to avoid.
+
+Result: the corpus ratio moved from **1.84x to 1.17x** (20,556 chars web vs 24,056 papers) — near parity. Median text per web source rose 7x. The extra content is substantive, not padding; on a shared URL, `basic` returned one sentence of opinion while `fast` returned the same page's evaluation methodology, dataset names and sample sizes.
+
+**Dependency.** `search_depth="fast"` was added to the Tavily API in January 2026, so `tavily-python` went from `0.4.0` to `0.8.0`. This is a safe upgrade against the `langchain-core<0.3` ceiling documented above: tavily-python depends only on `httpx`, `requests` and `tiktoken`, with no langchain relationship. Verified with `pip check` (clean) and a from-scratch `pip install --dry-run --ignore-installed`, which resolves `langchain 0.2.5` / `langchain-core 0.2.43` / `langgraph 0.1.4` / `tavily-python 0.8.0` together without conflict.
+
+The upgrade also makes `chunks_per_source` (1–3, ~500 chars each) work as a volume dial — the 0.4.0 client rejected it. Measured at `fast`: 475 / 881 / 1,151 median chars. It is *not* set explicitly in the code because 3 is the API default and that is what the current call already receives.
+
+**Not done here:** the README's performance table was measured against the old `basic` depth. Its latency and contradiction-count figures should be re-run before being quoted.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:
