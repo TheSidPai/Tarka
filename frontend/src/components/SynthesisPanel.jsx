@@ -64,6 +64,7 @@ function SourceLink({ url }) {
 function SourceList({ web, papers }) {
   return (
     <div
+      className="sources-grid"
       style={{
         marginTop: 14,
         paddingTop: 14,
@@ -147,13 +148,35 @@ export default function SynthesisPanel({ synthesis, sources, isFollowUp }) {
   const [showSources, setShowSources] = useState(false);
   if (!synthesis) return null;
 
-  const { summary, consensus, contradictions, source_count } = synthesis;
+  const { summary, consensus, contradictions, source_count, scout_status } = synthesis;
+  // Distinguish "the API went down" from "the search found nothing" — both
+  // previously surfaced as the same generic sentence in the summary.
+  const outages = Object.entries(scout_status || {})
+    .filter(([, v]) => v === "failed" || v === "empty")
+    .map(([k, v]) => `${k === "web" ? "Web search" : "Academic search"} ${
+      v === "failed" ? "was unavailable" : "returned no results"
+    }`);
   const web = sources?.web ?? [];
   const papers = sources?.papers ?? [];
   const canExpand = web.length > 0 || papers.length > 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28, marginTop: 20 }}>
+      {outages.length > 0 && (
+        <div
+          style={{
+            padding: "12px 18px",
+            borderRadius: 10,
+            border: "1px solid var(--contradiction-border)",
+            background: "var(--contradiction-bg)",
+            fontSize: 13,
+            color: "var(--text-secondary)",
+          }}
+        >
+          {outages.join(" · ")} — this analysis is missing one side of the evidence.
+        </div>
+      )}
+
       {/* Overview — the most-read text on the page, so it leads in serif */}
       <div
         style={{
@@ -278,7 +301,10 @@ export default function SynthesisPanel({ synthesis, sources, isFollowUp }) {
                 </div>
 
                 {/* Two opposed claims, with the divider made explicit */}
-                <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+                <div
+                  className="claims-grid"
+                  style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr" }}
+                >
                   <ClaimSide
                     label="Web"
                     claim={item.web_claim}
@@ -288,6 +314,7 @@ export default function SynthesisPanel({ synthesis, sources, isFollowUp }) {
                   />
                   <ClaimSide label="Paper" claim={item.paper_claim} quote={item.paper_quote} />
                   <span
+                    className="vs-badge"
                     style={{
                       position: "absolute",
                       left: "50%",

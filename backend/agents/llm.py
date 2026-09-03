@@ -84,3 +84,40 @@ class FallbackLLM:
                 failures.append(f"{name}={type(e).__name__}")
 
         raise RuntimeError(f"All LLM providers failed ({', '.join(failures)})")
+
+    async def astream_text(self, messages, on_chunk=None):
+        """Stream a text completion, returning the full text at the end.
+
+        `on_chunk` is awaited with the accumulated text so far, letting the
+        caller push progress to the client. A provider that fails *after*
+        emitting chunks falls through to the next one and the accumulated text
+        is discarded — partial output is cosmetic, and the authoritative result
+        is whatever the surviving provider returns.
+        """
+        if self._chain is None:
+            self._chain = self._build_chain()
+
+        failures = []
+        for index, (name, model) in enumerate(self._chain):
+            text = ""
+            try:
+                async for chunk in model.astream(messages):
+                    piece = getattr(chunk, "content", "") or ""
+                    if isinstance(piece, list):  # Anthropic content blocks
+                        piece = "".join(
+                            b.get("text", "") for b in piece if isinstance(b, dict)
+                        )
+                    if not piece:
+                        continue
+                    text += piece
+                    if on_chunk is not None:
+                        await on_chunk(text)
+                if index > 0:
+                    print(f"[LLM] Streamed by fallback provider: {name}")
+                return text
+            except Exception as e:
+                print(f"[LLM] {name} stream failed after {len(text)} chars: "
+                      f"{type(e).__name__}: {str(e)[:120]}")
+                failures.append(f"{name}={type(e).__name__}")
+
+        raise RuntimeError(f"All LLM providers failed ({', '.join(failures)})")

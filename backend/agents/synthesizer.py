@@ -16,6 +16,7 @@ class TarkaResponseSchema(BaseModel):
     consensus: List[dict] = Field(description="The list of consensus objects passed from the state.")
     contradictions: List[dict] = Field(description="The list of contradiction objects passed from the state.")
     source_count: SourceCountModel = Field(description="Breakdown of how many sources were integrated.")
+    scout_status: Dict[str, str] = Field(default_factory=dict, description="Per-scout outcome: ok | empty | failed.")
     suggested_followups: List[str] = Field(default_factory=list, description="2-3 natural follow-up questions generated dynamically based on the specific contradictions and consensus found.")
 
 class FollowUpSchema(BaseModel):
@@ -124,6 +125,12 @@ def synthesizer_node(state: TarkaState) -> dict:
         consensus=consensus_list,
         contradictions=contradiction_list,
         source_count=SourceCountModel(**counts),
+        # Follow-ups reuse a cached corpus and run no scouts, so report "cached"
+        # rather than a stale status from the turn that actually fetched.
+        scout_status={
+            "web": state.get("web_status") or ("cached" if web_data else "empty"),
+            "papers": state.get("paper_status") or ("cached" if paper_data else "empty"),
+        },
         suggested_followups=followups[:3],
     )
 

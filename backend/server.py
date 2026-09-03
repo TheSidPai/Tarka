@@ -36,8 +36,14 @@ async def run_research_stream(request: ResearchRequest):
     """
     Executes the LangGraph pipeline and yields JSON updates after every node.
     """
-    # Initialize the required state 
     now = time.time()
+
+    # Node completions and the Critic's live summary tokens arrive on different
+    # timescales, so both are funnelled onto one queue and drained in order.
+    # Without this the generator would be blocked awaiting the next astream()
+    # step while the Critic spends ~10s generating.
+    events: asyncio.Queue = asyncio.Queue()
+
     initial_state = {
         "query": request.query,
         "web_results": request.previous_web_results,
@@ -47,43 +53,66 @@ async def run_research_stream(request: ResearchRequest):
         "consensus": [],
         "contradictions": [],
         "overall_summary": "",
-        "final_payload": {}
+        "final_payload": {},
+        "_partial_queue": events,
     }
 
+    async def run_graph():
+        try:
+            async for step in graph.astream(initial_state):
+                # step is a dict like {"web_scout": {"web_results": [...]}}
+                for node_name, node_update in step.items():
+                    await events.put(("step", (node_name, node_update)))
+        except Exception as e:
+            await events.put(("error", str(e)))
+        finally:
+            await events.put(("finished", None))
+
+    task = asyncio.create_task(run_graph())
+
     try:
-        # graph.astream() yields the state updates sequentially as nodes complete
-        async for step in graph.astream(initial_state):
-            # step is a dict like {"web_scout": {"web_results": [...]}}
-            for node_name, node_update in step.items():
-                
-                # 1. Send a status update to the frontend UI. astream() yields a
-                # step once the node has finished, so this is past tense — the
-                # work is already done by the time the message goes out.
+        while True:
+            kind, data = await events.get()
+
+            if kind == "partial":
+                # The Critic's summary as it writes it — cosmetic, and replaced
+                # wholesale when the authoritative result arrives.
+                yield f"data: {json.dumps({'type': 'partial', 'summary': data})}\n\n"
+
+            elif kind == "step":
+                node_name, node_update = data
+                # astream() yields a step once the node has finished, so this is
+                # past tense — the work is already done by the time it goes out.
+                # Built outside the f-string: nested quotes across lines is
+                # Python 3.12+ syntax, and the image runs 3.11.
                 status_message = {
                     "type": "status",
                     "node": node_name,
-                    "message": f"{node_name.replace('_', ' ').capitalize()} complete"
+                    "message": f"{node_name.replace('_', ' ').capitalize()} complete",
                 }
                 yield f"data: {json.dumps(status_message)}\n\n"
-                
-                # 2. If the Synthesizer just finished, push the final UI payload!
+
                 if node_name == "synthesizer" and "final_payload" in node_update:
                     result_message = {
                         "type": "result",
-                        "payload": node_update["final_payload"]
+                        "payload": node_update["final_payload"],
                     }
                     yield f"data: {json.dumps(result_message)}\n\n"
 
-                # Small sleep to ensure the stream flushes smoothly
-                await asyncio.sleep(0.1)
+            elif kind == "error":
+                yield f"data: {json.dumps({'type': 'error', 'message': data})}\n\n"
 
-        print("Time taken for research: {:.2f} seconds".format(time.time() - now))    
-        # Tell the frontend to close the connection
+            elif kind == "finished":
+                break
+
+        print("Time taken for research: {:.2f} seconds".format(time.time() - now))
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     except Exception as e:
-        error_message = {"type": "error", "message": str(e)}
-        yield f"data: {json.dumps(error_message)}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    finally:
+        if not task.done():
+            task.cancel()
 
 
 

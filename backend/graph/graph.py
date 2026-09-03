@@ -8,9 +8,12 @@ from agents.critic import critic_node_split
 from agents.critic_twopass import critic_two_pass_node
 from agents.synthesizer import synthesizer_node
 
-def route_after_orchestrator(state: TarkaState) -> str:
+def route_after_orchestrator(state: TarkaState):
+    # Returning a list fans out: both scouts run in the same superstep and the
+    # critic waits for both. They write to different state keys, so there's no
+    # concurrent-update conflict to reduce.
     if state.get("needs_fetch"):
-        return "web_scout"
+        return ["web_scout", "paper_scout"]
     return "critic"  # Skip scouts, but still analyze the data!
 
 def build_graph():
@@ -31,12 +34,13 @@ def build_graph():
         route_after_orchestrator,
         {
             "web_scout": "web_scout",
+            "paper_scout": "paper_scout",
             "critic": "critic"
         }
     )
-    
-    # 3. Sequential Data Pipeline
-    builder.add_edge("web_scout", "paper_scout")
+
+    # 3. Data Pipeline — scouts in parallel, then analysis
+    builder.add_edge("web_scout", "critic")
     builder.add_edge("paper_scout", "critic")
     builder.add_edge("critic", "synthesizer")
     builder.add_edge("synthesizer", END)

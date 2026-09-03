@@ -1393,6 +1393,30 @@ One regression appeared and was fixed in the same pass: the first interrogation 
 
 ---
 
+### 2026-09-04 — Streaming, parallel scouts, and evidence quality
+
+Six improvements in one pass, the largest being live streaming of the Critic's summary.
+
+**Streaming the summary.** Previously the user watched status lines for ~20 seconds and then everything appeared at once. The Critic's XML puts `<summary>` first, which makes it streamable: the model's output is now consumed token by token, `_partial_summary()` extracts whatever sits between `<summary>` and its close, and the text is pushed to the client as it grows. **First visible content now arrives at ~9-11s instead of ~23s.**
+
+The plumbing needed three changes. `FallbackLLM` gained `astream_text()`, which streams through the provider chain and — if a provider dies mid-stream — falls through to the next one and discards the partial text; partial output is cosmetic and the `result` event replaces it wholesale, so a truncated or abandoned partial can never become the final answer. The Critic node became `async`. And the SSE generator was restructured around a single `asyncio.Queue`: node completions and summary tokens arrive on different timescales, and without a shared queue the generator would sit blocked awaiting the next `astream()` step for the ~10s the Critic spends generating. Frames are throttled to every ~24 characters rather than every token, which would flood the channel for no visible gain.
+
+Because the Critic is async, `main.py` now drives the graph with `asyncio.run(graph.ainvoke(...))` — the synchronous `.invoke()` cannot run an async node.
+
+**Parallel scouts.** `route_after_orchestrator` returns a *list* of node names, which LangGraph 0.1.4 treats as a fan-out; both scouts run in one superstep and the Critic waits for both. They write to different state keys, so there is no concurrent-update conflict needing a reducer. Verified on a throwaway graph first (two 1-second nodes completing in 1.04s), then live — where `paper_scout` completed at 3.1s while `web_scout` completed at 4.9s. Finishing out of order is the proof: under the old sequential wiring the paper scout ran *after* the web scout and could never finish first.
+
+**Evidence quality on the academic side.** Papers with an empty abstract were silently consuming a slot in the Critic's 15-source budget. They are now dropped — but `per-page` was raised to 20 first, so filtering costs no coverage, and the surviving results are sorted by `cited_by_count` before being cut to 15. The effect on evidence quality is larger than expected: on the same query the most-cited paper went from 686 citations to **4,238**, because the over-fetch reached work that relevance ordering alone had missed.
+
+**Distinguishing failure from emptiness.** A dead Tavily and a search with no hits both used to surface as one generic sentence. `web_status` and `paper_status` (`ok` / `empty` / `failed`, or `cached` on a follow-up that ran no scouts) now travel through the payload, and the UI shows a specific banner. Separate keys rather than one dict, because with the scouts now parallel two nodes writing one key would need a reducer.
+
+**Recent threads.** `lib/threads.js` stores up to 8 threads newest-first, with a title taken from the opening question, and migrates any thread saved under the previous single-slot key. A quota failure retries with half the list rather than losing everything. The list renders on the empty state only — once a thread is open, a competing list of other threads would fight the reading column. `Clear` became `New`, since the thread is no longer destroyed by starting another.
+
+**Responsive.** The contradiction card's two columns and its centred `VS` badge both assumed a wide viewport; under 760px the grid stacks, the divider becomes horizontal, the badge moves to the left edge, and the sources grid goes single-column. This closes the desktop-first limitation named at the top of this document.
+
+**One bug worth recording.** The first version of the restructured SSE generator used a multi-line f-string with nested quotes — PEP 701 syntax, valid on the local Python 3.13 venv and a `SyntaxError` on the image's Python 3.11. It passed every local check and crash-looped the container on boot. There is now a `py_compile` pass against a `python:3.11-slim` container in the verification routine; the local interpreter being newer than the deployed one is a gap that local testing cannot see.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:

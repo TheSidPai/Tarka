@@ -112,6 +112,30 @@ body::before {
    state rather than a conditional render. */
 .sources[data-open="false"] { display: none; }
 
+/* Blinking caret on the summary while it streams in */
+@keyframes caret-blink { 0%, 45% { opacity: 1; } 55%, 100% { opacity: 0; } }
+.caret {
+  margin-left: 2px;
+  color: var(--text-secondary);
+  animation: caret-blink 1s step-end infinite;
+}
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+
+/* Stacked layout for narrow screens: the contradiction card's two columns
+   and its centred VS badge both assume a wide viewport. */
+@media (max-width: 760px) {
+  .claims-grid { grid-template-columns: 1fr !important; }
+  .claims-grid > div:first-child {
+    border-right: none !important;
+    border-bottom: 1px solid var(--contradiction-border);
+  }
+  .vs-badge {
+    left: 22px !important;
+    transform: translateY(-50%) !important;
+  }
+  .sources-grid { grid-template-columns: 1fr !important; gap: 18px !important; }
+}
+
 /* ---------------------------------------------------------------- Print
    "Save as PDF" in the browser dialogue produces the export. Forced onto a
    light palette — printing a near-black page wastes ink and reads badly. */

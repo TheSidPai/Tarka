@@ -33,7 +33,9 @@ def paper_scout_node(state: TarkaState) -> dict:
 
     params = {
         "search": query,
-        "per-page": 15,
+        # Over-fetch so dropping abstract-less results doesn't shrink the
+        # 15-source budget the Critic reasons over.
+        "per-page": 20,
         # doi/venue make the results citable (BibTeX, RIS); cited_by_count is a
         # credibility signal the UI shows next to each paper.
         "select": (
@@ -69,8 +71,24 @@ def paper_scout_node(state: TarkaState) -> dict:
             # OpenAlex stores the list of works in 'results', not 'data'
             for p in data.get("results", [])
         ]
-        return {"paper_results": results}
+
+        # A paper with no abstract is dead weight: it silently consumes one of
+        # the 15 slots the Critic gets to reason over.
+        usable = [p for p in results if (p["summary"] or "").strip()]
+        dropped = len(results) - len(usable)
+        if dropped:
+            print(f"[PAPER SCOUT] Dropped {dropped} result(s) with no abstract.")
+
+        # Most-cited first, so the Critic reads the best-established work while
+        # its attention is freshest, rather than raw API relevance order.
+        usable.sort(key=lambda p: p.get("cited_by_count") or 0, reverse=True)
+        usable = usable[:15]
+
+        return {
+            "paper_results": usable,
+            "paper_status": "ok" if usable else "empty",
+        }
 
     except Exception as e:
-        print(f"OpenAlex unavailable: {e}")
-        return {"paper_results": []}
+        print(f"[PAPER SCOUT] OpenAlex unavailable: {type(e).__name__}: {e}")
+        return {"paper_results": [], "paper_status": "failed"}

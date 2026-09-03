@@ -4,11 +4,43 @@ import StatusBar from "./components/StatusBar";
 import SynthesisPanel from "./components/SynthesisPanel";
 import FollowUpChips from "./components/FollowUpChips";
 import TurnActions from "./components/TurnActions";
+import RecentThreads from "./components/RecentThreads";
+import { loadThreads, saveThreads, upsertThread } from "./lib/threads";
 
 // One entry per question asked. Turns accumulate so the thread scrolls
 // instead of the previous answer being wiped on every follow-up.
 function newTurn(id, query) {
-  return { id, query, status: [], synthesis: null, error: null, loading: true };
+  return { id, query, status: [], partial: "", synthesis: null, error: null, loading: true };
+}
+
+/* The summary as the Critic writes it, shown while the rest of the analysis
+   is still generating. Replaced by the real panel when the payload lands. */
+function PartialSummary({ text }) {
+  if (!text) return null;
+  return (
+    <div
+      style={{
+        marginTop: 20,
+        padding: "22px 26px",
+        borderRadius: 12,
+        border: "1px solid var(--border)",
+        background: "var(--card-bg)",
+      }}
+    >
+      <p
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontSize: 17,
+          color: "var(--text-primary)",
+          lineHeight: 1.65,
+          maxWidth: "74ch",
+        }}
+      >
+        {text}
+        <span className="caret" aria-hidden="true">▌</span>
+      </p>
+    </div>
+  );
 }
 
 /* Each turn sits against a rail: a numbered node with a hairline running down
@@ -114,38 +146,26 @@ function ErrorBanner({ message }) {
   );
 }
 
-const STORE_KEY = "tarka.thread.v1";
-
-// Restoring in a lazy initialiser rather than an effect: an effect would run
-// after the first render and race with the empty initial state.
-function loadStored() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.turns)) return null;
-    return parsed;
-  } catch {
-    return null; // private mode, quota, or a stale shape — start fresh
-  }
-}
-
 export default function App() {
-  const stored = useRef(loadStored()).current;
+  // Restoring in lazy initialisers rather than an effect: an effect would run
+  // after the first render and race with the empty initial state.
+  const restored = useRef(loadThreads()).current;
 
   const [theme, setTheme] = useState("dark");
+  const [threads, setThreads] = useState(restored);
+  const [threadId, setThreadId] = useState(() => restored[0]?.id ?? `t-${Date.now()}`);
   // A half-finished turn shouldn't come back as permanently loading.
   const [turns, setTurns] = useState(() =>
-    (stored?.turns ?? []).map((t) => ({ ...t, loading: false }))
+    (restored[0]?.turns ?? []).map((t) => ({ ...t, loading: false }))
   );
   const [loading, setLoading] = useState(false);
   const [conversationHistory, setConversationHistory] = useState(
-    () => stored?.conversationHistory ?? []
+    () => restored[0]?.conversationHistory ?? []
   );
   // Held once at the top level rather than inside every turn: the payload
   // echoes the same ~37KB of sources back on each follow-up.
   const [corpus, setCorpus] = useState(
-    () => stored?.corpus ?? { web: [], papers: [] }
+    () => restored[0]?.corpus ?? { web: [], papers: [] }
   );
 
   useEffect(() => {
@@ -165,33 +185,45 @@ export default function App() {
   // Persist the thread so a refresh doesn't destroy it. Skipped mid-request:
   // there's no value in storing a turn that's still streaming.
   useEffect(() => {
-    if (loading) return;
-    try {
-      if (turns.length === 0) localStorage.removeItem(STORE_KEY);
-      else
-        localStorage.setItem(
-          STORE_KEY,
-          JSON.stringify({ turns, corpus, conversationHistory })
-        );
-    } catch {
-      // Quota exceeded or storage unavailable — the thread still works in
-      // memory, it just won't survive a refresh.
-    }
-  }, [turns, corpus, conversationHistory, loading]);
+    if (loading || turns.length === 0) return;
+    setThreads((prev) => {
+      const next = upsertThread(prev, {
+        id: threadId,
+        title: turns[0]?.query ?? "Untitled",
+        turns,
+        corpus,
+        conversationHistory,
+      });
+      saveThreads(next);
+      return next;
+    });
+  }, [turns, corpus, conversationHistory, loading, threadId]);
 
   function patchTurn(id, fn) {
     setTurns((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
   }
 
-  function clearThread() {
+  function startNewThread() {
+    setThreadId(`t-${Date.now()}`);
     setTurns([]);
     setConversationHistory([]);
     setCorpus({ web: [], papers: [] });
-    try {
-      localStorage.removeItem(STORE_KEY);
-    } catch {
-      /* nothing to clean up */
-    }
+  }
+
+  function openThread(t) {
+    setThreadId(t.id);
+    setTurns((t.turns ?? []).map((x) => ({ ...x, loading: false })));
+    setConversationHistory(t.conversationHistory ?? []);
+    setCorpus(t.corpus ?? { web: [], papers: [] });
+  }
+
+  function deleteThread(id) {
+    setThreads((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      saveThreads(next);
+      return next;
+    });
+    if (id === threadId) startNewThread();
   }
 
   async function handleSearch(searchQuery) {
@@ -254,6 +286,12 @@ export default function App() {
           if (event.type === "status") {
             patchTurn(id, (t) => ({ ...t, status: [...t.status, event.message] }));
           }
+          if (event.type === "partial") {
+            // The Critic's summary as it writes it. Cosmetic — the result
+            // event replaces it wholesale, so a truncated or abandoned
+            // partial can never end up as the final answer.
+            patchTurn(id, (t) => ({ ...t, partial: event.summary }));
+          }
           if (event.type === "error") {
             patchTurn(id, (t) => ({ ...t, error: event.message }));
             return;
@@ -305,8 +343,8 @@ export default function App() {
       >
         {turns.length > 0 && !loading && (
           <button
-            onClick={clearThread}
-            title="Clear this thread and start over"
+            onClick={startNewThread}
+            title="Start a new thread — this one stays in Recent"
             style={{
               background: "var(--bg-secondary)",
               border: "1px solid var(--border)",
@@ -317,7 +355,7 @@ export default function App() {
               fontSize: 13,
             }}
           >
-            Clear
+            New
           </button>
         )}
         <button
@@ -342,6 +380,15 @@ export default function App() {
         disabled={loading}
       />
 
+      {turns.length === 0 && (
+        <RecentThreads
+          threads={threads}
+          currentId={threadId}
+          onOpen={openThread}
+          onDelete={deleteThread}
+        />
+      )}
+
       {turns.map((turn, i) => {
         const isLast = i === turns.length - 1;
         return (
@@ -349,7 +396,12 @@ export default function App() {
             <TurnRow index={i} isLast={isLast}>
               <QuestionHeader query={turn.query} isFollowUp={i > 0} />
 
-              {turn.loading && !turn.synthesis && <StatusBar messages={turn.status} />}
+              {turn.loading && !turn.synthesis && (
+                <>
+                  <StatusBar messages={turn.status} />
+                  <PartialSummary text={turn.partial} />
+                </>
+              )}
               {turn.synthesis && (
                 <>
                   <SynthesisPanel

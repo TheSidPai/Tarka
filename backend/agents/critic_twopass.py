@@ -88,7 +88,21 @@ def extract_tag(text: str, tag: str) -> str:
     match = re.search(f"<{tag}>(.*?)</{tag}>", text, re.DOTALL | re.IGNORECASE)
     return match.group(1).strip() if match else "N/A"
 
-def critic_two_pass_node(state: TarkaState) -> dict:
+_SUMMARY_OPEN = re.compile(r"<summary>", re.IGNORECASE)
+
+
+def _partial_summary(text: str) -> str:
+    """The summary is the first tag the model writes, so it can be shown while
+    the rest of the analysis is still generating."""
+    opened = _SUMMARY_OPEN.search(text)
+    if not opened:
+        return ""
+    body = text[opened.end():]
+    closed = re.search(r"</summary>", body, re.IGNORECASE)
+    return (body[: closed.start()] if closed else body).strip()
+
+
+async def critic_two_pass_node(state: TarkaState) -> dict:
     user_query = state["query"]
     web_data = state.get("web_results", [])
     paper_data = state.get("paper_results", [])
@@ -148,8 +162,24 @@ def critic_two_pass_node(state: TarkaState) -> dict:
     # ------------------------------------------------------------------
     # The generation call and the cleanup share one guard: a dead API key or a
     # rate limit must degrade to an empty analysis, not escape the node.
+    # The server puts a queue here when it wants live progress; absent in the
+    # headless harness and in tests, where streaming simply doesn't happen.
+    queue = state.get("_partial_queue")
+    last_sent = ""
+
+    async def push_partial(accumulated: str) -> None:
+        nonlocal last_sent
+        if queue is None:
+            return
+        summary = _partial_summary(accumulated)
+        # Only worth a frame if it grew meaningfully — token-level updates
+        # would flood the SSE channel for no visible benefit.
+        if summary and len(summary) - len(last_sent) >= 24:
+            last_sent = summary
+            await queue.put(("partial", summary))
+
     try:
-        raw_xml_report = base_llm.invoke(messages).content
+        raw_xml_report = await base_llm.astream_text(messages, on_chunk=push_partial)
 
         # With no tools bound this is a plain string, but Anthropic can return
         # a list of content blocks — join them rather than crashing on .replace.

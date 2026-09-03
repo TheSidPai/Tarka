@@ -31,7 +31,12 @@ def web_scout_node(state: TarkaState) -> dict:
             }
             for item in response.get("results", [])
         ]
-        return {"web_results": results}
+        # "empty" (a valid search with no hits) is a different problem from
+        # "failed" (the API is down), and the UI says so.
+        return {
+            "web_results": results,
+            "web_status": "ok" if results else "empty",
+        }
     except Exception as e:
-        print(f"Tavily unavailable: {e}")
-        return {"web_results": []}
+        print(f"[WEB SCOUT] Tavily unavailable: {type(e).__name__}: {e}")
+        return {"web_results": [], "web_status": "failed"}

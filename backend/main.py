@@ -1,9 +1,12 @@
 # backend/main.py
+import asyncio
 import json
 
 from graph.graph import build_graph
 import time
 
+# The critic node is async (it streams), so the graph must be driven with
+# ainvoke — the sync .invoke() cannot run an async node.
 def run_test():
     graph = build_graph()
     
@@ -53,7 +56,7 @@ def run_test():
     # }
     
     # start = time.time()
-    result_1 = graph.invoke(turn_1_state)
+    result_1 = asyncio.run(graph.ainvoke(turn_1_state))
 
     # print("\n--- RAW TAVILY DATA ---")
     # for w in result_1["web_results"]:
