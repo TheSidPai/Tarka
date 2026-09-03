@@ -1,11 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Light ground so the mark holds on dark browser chrome too -->
-  <rect width="64" height="64" rx="14" fill="#f0f0f0"/>
-  <text
-    x="32" y="46"
-    text-anchor="middle"
-    font-family="'Playfair Display', Georgia, 'Times New Roman', serif"
-    font-size="46"
-    fill="#0e0e0e"
-  >t</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Tarka: one disc, cut once, halves slid out of true.
+       Geometry mirrors frontend/src/components/Mark.jsx — change both together.
+       Literal colours rather than currentColor: a favicon has no page to
+       inherit from. Light ground so the mark still reads against dark
+       browser chrome, where an ink tile would disappear. -->
+  <rect width="100" height="100" rx="22" fill="#ECEDEF"/>
+  <g fill="#14161A" transform="translate(50 50) scale(0.78) translate(-50 -50)">
+    <path d="M16 46 A30 30 0 0 1 76 46 Z"/>
+    <path d="M24 54 A30 30 0 0 0 84 54 Z"/>
+  </g>
 </svg>

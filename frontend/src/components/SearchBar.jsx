@@ -1,4 +1,5 @@
 import { useState } from "react"
+import Mark from "./Mark"
 
 export default function SearchBar({ onSearch, hasResults, disabled }) {
   const [input, setInput] = useState("")
@@ -31,6 +32,10 @@ export default function SearchBar({ onSearch, hasResults, disabled }) {
       {/* Logo + tagline — hide once results appear */}
       {!hasResults && (
         <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <Mark
+            size={46}
+            style={{ color: "var(--text-primary)", marginBottom: 22 }}
+          />
           <h1 style={{
             fontFamily: "var(--font-display)",
             fontSize: 76,
@@ -54,7 +59,13 @@ export default function SearchBar({ onSearch, hasResults, disabled }) {
 
       {/* Logo inline when results showing */}
       {hasResults && (
-        <div style={{ marginBottom: 18 }}>
+        <div style={{
+          marginBottom: 18,
+          display: "flex",
+          alignItems: "center",
+          gap: 11
+        }}>
+          <Mark size={23} style={{ color: "var(--text-primary)" }} />
           <span style={{
             fontFamily: "var(--font-display)",
             fontSize: 30,
