@@ -79,7 +79,17 @@
       "Bash(curl -s -o /dev/null -w \"health=%{http_code}\\\\n\" http://localhost:8000/docs)",
       "Bash(node -e ' *)",
       "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"/c/Users/TheSidPai/Tarka/backend:/src\" python:3.11-slim python -m py_compile /src/agents/critic_twopass.py)",
-      "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/e2e.py\" \"Do high-protein diets damage your kidneys?\")"
+      "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/e2e.py\" \"Do high-protein diets damage your kidneys?\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"/c/Users/TheSidPai/Tarka/backend:/src\" python:3.11-slim python -m py_compile /src/server.py /src/store.py /src/limits.py)",
+      "Bash(PYTHONPATH=. TARKA_DB=./_test.db timeout 150 ./.venv/Scripts/python.exe -c ' *)",
+      "Bash(curl -s http://localhost:8000/api/health)",
+      "Bash(node -e \"console.log\\(crypto.randomUUID\\(\\)\\)\")",
+      "Bash(curl -s -o /dev/null -w '  PUT   %{http_code}\\\\n' -X PUT http://localhost:8000/api/threads/__TRACKED_VAR__ -H 'Content-Type: application/json' -d '{\"title\":\"Standing desks\",\"payload\":{\"turns\":[{\"query\":\"Do standing desks improve productivity?\"}],\"corpus\":{\"web\":[],\"papers\":[]}}}')",
+      "Bash(curl -s http://localhost:8000/api/threads/__TRACKED_VAR__)",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\('  in_flight =',j.limits.in_flight,'of',j.limits.max_concurrent, j.limits.in_flight===0?'-> no leak':'-> LEAKED'\\)}\\)\")",
+      "Bash(curl -s -o /dev/null -X PUT http://localhost:8000/api/threads/__TRACKED_VAR__ -H 'Content-Type: application/json' -d '{\"title\":\"Survives rebuild\",\"payload\":{\"turns\":[{\"query\":\"persistence test\"}]}}')",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(s\\);console.log\\(j.title? 'PASS thread survived -> '+JSON.stringify\\(j.title\\) : 'FAIL '+s\\)}catch\\(e\\){console.log\\('FAIL',s.slice\\(0,80\\)\\)}}\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST http://localhost:8000/api/research -H \"Content-Type: application/json\" -d '{\"query\":\"x\",\"conversation_history\":[{\"a\":1}],\"previous_web_results\":[],\"previous_paper_results\":[]}' --max-time 2)"
     ],
     "additionalDirectories": [
       "C:\\Users\\TheSidPai\\.claude"

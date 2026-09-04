@@ -1447,6 +1447,58 @@ WEB / PAPER labels name the sides.
 
 ---
 
+### 2026-09-04 — Persistence and limits, without accounts
+
+The question was whether Tarka should have login. It shouldn't yet — accounts
+are a proxy for three separate wants, and only one of them needs identity:
+threads that follow you across devices, a way to share a finding, and not being
+billed into oblivion if this goes public. Sharing needs a *store* and no login;
+cost control needs *rate limiting* and no login. So the store was built first,
+and accounts remain a later, separable layer.
+
+**Thread store.** `backend/store.py`, SQLite, one table:
+`threads(id, title, payload JSON, created_at, updated_at)`. Postgres would be
+architecture cosplay at this scale — a thread is ~50KB of JSON, there is no
+concurrency worth the name, and nothing ever queries inside the payload. The
+client generates the id (`crypto.randomUUID()`), so there is no user table and
+no ID allocation round-trip, and `?t=<uuid>` becomes a shareable link. Worth
+saying plainly: an unguessable id makes a thread *shareable*, not private.
+
+`PUT/GET/DELETE /api/threads/{id}`, with a 2MB payload ceiling, an id-shape
+check, and WAL mode so a read can proceed during a write. `sqlite3` is stdlib,
+so no new dependency and no pin risk; the calls go through `asyncio.to_thread`
+because the event loop is shared with in-flight SSE streams.
+
+**Persistence lives at the boundary.** Nothing in `agents/` or `graph/` imports
+`store` — the pipeline stays a pure function of its input, which is what keeps
+`main.py` runnable headless and lets tests stub a node without a database in
+scope. A test asserts this rather than trusting it.
+
+**Rate limiting, and why not Redis.** Lua-in-Redis exists to make
+check-and-increment atomic across *distributed* workers: `GET; compare; INCR` is
+a read-modify-write race, and `MULTI/EXEC` gives atomicity without the
+conditional branch a limiter needs, so `EVAL` is the standard answer. None of
+that applies to a single uvicorn process — the event loop is single-threaded, so
+a critical section containing no `await` cannot interleave. `limits._take()` is
+synchronous for exactly that reason and a test asserts it has no awaitable
+opcodes. **The guarantee dies under `--workers N` or a second container**; that
+is the moment to replace the file with Redis, and not before.
+
+Two defences, because they guard different resources: a per-IP token bucket
+(12/hour, bounded to 4096 tracked clients) and a global concurrency semaphore
+(4 in flight). The semaphore matters more — the scarce resource is not request
+rate but the ~20 seconds and two LLM calls each run holds. The slot is released
+in the SSE generator's `finally`, not the endpoint, because the endpoint returns
+as soon as the `StreamingResponse` is constructed.
+
+Verified live: 12 requests pass and the 13th returns 429 with a `Retry-After`
+header and a readable message; 12 aborted requests leave `in_flight` at 0; a
+thread survives a full `docker compose up --build` via the named volume; and a
+second client fetches a thread by id alone with turns, corpus, contradiction and
+history intact.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:

@@ -5,7 +5,18 @@ import SynthesisPanel from "./components/SynthesisPanel";
 import FollowUpChips from "./components/FollowUpChips";
 import TurnActions from "./components/TurnActions";
 import RecentThreads from "./components/RecentThreads";
-import { loadThreads, saveThreads, upsertThread } from "./lib/threads";
+import {
+  loadThreads,
+  newThreadId,
+  pullThread,
+  pushThread,
+  saveThreads,
+  setUrlThread,
+  shareUrl,
+  threadIdFromUrl,
+  upsertThread,
+} from "./lib/threads";
+import { copyText } from "./lib/export";
 
 // One entry per question asked. Turns accumulate so the thread scrolls
 // instead of the previous answer being wiped on every follow-up.
@@ -153,7 +164,8 @@ export default function App() {
 
   const [theme, setTheme] = useState("dark");
   const [threads, setThreads] = useState(restored);
-  const [threadId, setThreadId] = useState(() => restored[0]?.id ?? `t-${Date.now()}`);
+  const [threadId, setThreadId] = useState(() => restored[0]?.id ?? newThreadId());
+  const [copied, setCopied] = useState(false);
   // A half-finished turn shouldn't come back as permanently loading.
   const [turns, setTurns] = useState(() =>
     (restored[0]?.turns ?? []).map((t) => ({ ...t, loading: false }))
@@ -186,25 +198,55 @@ export default function App() {
   // there's no value in storing a turn that's still streaming.
   useEffect(() => {
     if (loading || turns.length === 0) return;
+    const thread = {
+      id: threadId,
+      title: turns[0]?.query ?? "Untitled",
+      turns,
+      corpus,
+      conversationHistory,
+    };
     setThreads((prev) => {
-      const next = upsertThread(prev, {
-        id: threadId,
-        title: turns[0]?.query ?? "Untitled",
-        turns,
-        corpus,
-        conversationHistory,
-      });
+      const next = upsertThread(prev, thread);
       saveThreads(next);
       return next;
     });
+    // Durable mirror. Deliberately not awaited — a failed sync leaves the
+    // session working entirely off localStorage.
+    pushThread(thread);
+    setUrlThread(threadId);
   }, [turns, corpus, conversationHistory, loading, threadId]);
+
+  // A ?t=<id> link opens someone else's thread, or your own from another
+  // browser. Runs once; a local copy already in hand wins, since it may be
+  // newer than what was last synced.
+  useEffect(() => {
+    const linked = threadIdFromUrl();
+    if (!linked || linked === threadId) return;
+    const local = restored.find((t) => t.id === linked);
+    if (local) {
+      openThread(local);
+      return;
+    }
+    let cancelled = false;
+    pullThread(linked).then((remote) => {
+      if (cancelled || !remote || remote.turns.length === 0) return;
+      setThreads((prev) => {
+        const next = upsertThread(prev, remote);
+        saveThreads(next);
+        return next;
+      });
+      openThread(remote);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function patchTurn(id, fn) {
     setTurns((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
   }
 
   function startNewThread() {
-    setThreadId(`t-${Date.now()}`);
+    setThreadId(newThreadId());
     setTurns([]);
     setConversationHistory([]);
     setCorpus({ web: [], papers: [] });
@@ -246,7 +288,15 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        // 429 and 503 carry a human explanation in `detail`; surface that
+        // rather than a bare status code.
+        let detail = "";
+        try {
+          detail = (await response.json())?.detail ?? "";
+        } catch {
+          /* not JSON — fall back to the status */
+        }
+        throw new Error(detail || `Server error: ${response.status}`);
       }
 
       const reader = response.body.getReader();
@@ -341,6 +391,28 @@ export default function App() {
         className="no-print"
         style={{ position: "absolute", top: 20, right: 24, display: "flex", gap: 8 }}
       >
+        {turns.length > 0 && !loading && (
+          <button
+            onClick={async () => {
+              if (await copyText(shareUrl(threadId))) {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1600);
+              }
+            }}
+            title="Copy a link to this thread — anyone with it can read the thread"
+            style={{
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
+              borderRadius: 8,
+              padding: "6px 14px",
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            {copied ? "Copied" : "Copy link"}
+          </button>
+        )}
         {turns.length > 0 && !loading && (
           <button
             onClick={startNewThread}

@@ -5,3 +5,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Local SQLite scratch DBs
+*.db
+*.db-wal
+*.db-shm

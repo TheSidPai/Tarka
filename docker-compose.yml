@@ -9,4 +9,12 @@ services:
       - "8000:8000"
     env_file:
       - .env  # Crucial: Passes your Anthropic & Tavily API keys into the container
+    environment:
+      TARKA_DB: /data/tarka.db
+    volumes:
+      # Saved threads live outside the image, so a rebuild doesn't wipe them.
+      - tarka-data:/data
     restart: unless-stopped
+
+volumes:
+  tarka-data:
