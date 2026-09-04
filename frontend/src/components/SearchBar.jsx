@@ -32,22 +32,39 @@ export default function SearchBar({ onSearch, hasResults, disabled }) {
       {/* Logo + tagline — hide once results appear */}
       {!hasResults && (
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <Mark
-            size={46}
-            style={{ color: "var(--text-primary)", marginBottom: 22 }}
-          />
-          <h1 style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 76,
-            fontWeight: 400,
-            color: "var(--text-primary)",
-            letterSpacing: "-0.03em",
-            lineHeight: 1,
-            marginBottom: 18
+          {/* Horizontal lockup. Aligned on the text baseline rather than by
+              centring boxes: an h1 box includes descender space that "tarka"
+              never uses, so box-centring would sit the mark visibly low. */}
+          <div style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "center",
+            gap: 20
           }}>
-            tarka
-          </h1>
+            <Mark
+              size={46}
+              style={{
+                color: "var(--text-primary)",
+                flexShrink: 0,
+                // Round shapes need to break the baseline slightly to look
+                // seated on it — the same overshoot an 'o' is drawn with.
+                transform: "translateY(3px)"
+              }}
+            />
+            <h1 style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 76,
+              fontWeight: 400,
+              color: "var(--text-primary)",
+              letterSpacing: "-0.03em",
+              lineHeight: 1,
+              margin: 0
+            }}>
+              tarka
+            </h1>
+          </div>
           <p style={{
+            marginTop: 20,
             fontSize: 16,
             color: "var(--text-secondary)",
             letterSpacing: "0.02em"
@@ -57,15 +74,23 @@ export default function SearchBar({ onSearch, hasResults, disabled }) {
         </div>
       )}
 
-      {/* Logo inline when results showing */}
+      {/* Logo inline when results showing — same lockup, scaled, and
+          baseline-aligned for the same reason as above */}
       {hasResults && (
         <div style={{
           marginBottom: 18,
           display: "flex",
-          alignItems: "center",
-          gap: 11
+          alignItems: "baseline",
+          gap: 9
         }}>
-          <Mark size={23} style={{ color: "var(--text-primary)" }} />
+          <Mark
+            size={20}
+            style={{
+              color: "var(--text-primary)",
+              flexShrink: 0,
+              transform: "translateY(1px)"
+            }}
+          />
           <span style={{
             fontFamily: "var(--font-display)",
             fontSize: 30,

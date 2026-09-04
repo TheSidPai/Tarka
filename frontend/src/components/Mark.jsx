@@ -16,10 +16,14 @@ export default function Mark({ size = 28, style }) {
       aria-label="Tarka"
       style={style}
     >
-      {/* upper half, centred (46,46) */}
-      <path d="M16 46 A30 30 0 0 1 76 46 Z" />
-      {/* lower half, centred (54,54) — offset 8 units right and down */}
-      <path d="M24 54 A30 30 0 0 0 84 54 Z" />
+      {/* Offset is 12 horizontally against an 8 vertical gap. The specimen
+          sheet used 8/8, which reads at 104px but collapses into a plain
+          bisected disc — or a "no entry" sign — at UI sizes. The slip has to
+          out-read the cut. */}
+      {/* upper half, centred (44,46) */}
+      <path d="M14 46 A30 30 0 0 1 74 46 Z" />
+      {/* lower half, centred (56,54) */}
+      <path d="M26 54 A30 30 0 0 0 86 54 Z" />
     </svg>
   );
 }

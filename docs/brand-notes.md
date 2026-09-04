@@ -13,13 +13,18 @@ a 16px favicon — detail dies at that size, mass does not.
 
 ```
 viewBox 0 0 100 100
-upper half  M16 46 A30 30 0 0 1 76 46 Z   (centre 46,46 · r30)
-lower half  M24 54 A30 30 0 0 0 84 54 Z   (centre 54,54 · r30)
+upper half  M14 46 A30 30 0 0 1 74 46 Z   (centre 44,46 · r30)
+lower half  M26 54 A30 30 0 0 0 86 54 Z   (centre 56,54 · r30)
 ```
 
 Both are exact semicircles — endpoint distance equals 2r. The halves are offset
-8 units horizontally and separated 8 units vertically; that 8/8 relationship is
-the mark, so scale it rather than adjusting either value alone.
+**12 units horizontally** against an **8 unit vertical gap**.
+
+The specimen sheet drew this 8/8, which reads at 104px and fails at UI sizes:
+at 44px an 8-unit offset is ~3.5px, and the mark collapses into a plain
+bisected disc — or, worse, a "no entry" sign. The horizontal slip has to
+out-read the horizontal cut, so it was widened to 12. Scale the pair; don't
+narrow the offset back toward the gap.
 
 Lives in two places that must change together:
 
