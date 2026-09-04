@@ -1417,6 +1417,36 @@ Because the Critic is async, `main.py` now drives the graph with `asyncio.run(gr
 
 ---
 
+### 2026-09-04 — Ungrounded findings, and a badge in the wrong place
+
+Caught in the UI: a contradiction card whose paper side read *"Academic papers
+do not directly address this claim"* with a quote of `N/A`. That is not a
+contradiction. It is absence of evidence written up as opposition — precisely
+the failure this project exists to prevent, appearing in the component that
+exists to prevent it.
+
+**Enforced in the parser, not the prompt.** A rule was added telling the model
+that every finding needs a verbatim quotation from *both* sides and that a point
+it cannot quote both sides of does not get reported. But prompt rules are
+guidance, and the lesson of the Day 4 Critic work is that the deterministic
+layer is where correctness belongs. `_is_grounded()` now drops any consensus or
+contradiction whose web or paper quote is missing, under twelve characters, or
+one of the phrases the model reaches for when a side is silent (`N/A`, `not
+addressed`, `no direct…`). Source URLs and paper IDs may still legitimately be
+`N/A` — only the quotes are load-bearing. Dropped counts are logged.
+
+Verified against the exact payload from the screenshot: two ungrounded findings
+dropped, the one properly-quoted contradiction kept. Re-running the same query
+live now returns a genuine disagreement with real quotations on both sides.
+
+**The VS badge.** Below 760px the contradiction card stacks, and the badge —
+absolutely positioned at 50% of the grid — landed inside whichever column was
+taller, printing on top of the web quote. It is now hidden in the stacked
+layout; the horizontal rule between the cells already carries the split and the
+WEB / PAPER labels name the sides.
+
+---
+
 ## What's Next
 
 Tarka works. The architecture is sound, the output quality is good, the demo is verified. What comes next isn't fixing — it's extending:

@@ -129,10 +129,11 @@ body::before {
     border-right: none !important;
     border-bottom: 1px solid var(--contradiction-border);
   }
-  .vs-badge {
-    left: 22px !important;
-    transform: translateY(-50%) !important;
-  }
+  /* Stacked, the columns have wildly different heights, so "50% of the grid"
+     lands somewhere inside the taller one — the badge was printing on top of
+     the web quote. The horizontal rule between the cells already carries the
+     split, and the WEB / PAPER labels name the sides. */
+  .vs-badge { display: none !important; }
   .sources-grid { grid-template-columns: 1fr !important; gap: 18px !important; }
 }
 

@@ -77,7 +77,9 @@
       "Bash(node \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/stream.mjs\")",
       "Bash(grep -vE \"^\\\\s*$\")",
       "Bash(curl -s -o /dev/null -w \"health=%{http_code}\\\\n\" http://localhost:8000/docs)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"/c/Users/TheSidPai/Tarka/backend:/src\" python:3.11-slim python -m py_compile /src/agents/critic_twopass.py)",
+      "Bash(./.venv/Scripts/python.exe \"C:/Users/THESID~1/AppData/Local/Temp/claude/c--Users-TheSidPai-Tarka/e25852e2-c48a-4f75-a068-7416d8cbe39a/scratchpad/e2e.py\" \"Do high-protein diets damage your kidneys?\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\TheSidPai\\.claude"

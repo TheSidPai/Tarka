@@ -40,8 +40,14 @@ _SHARED_RULES = (
     "1. Do NOT use Markdown formatting. Do NOT include conversational filler.\n"
     "2. Only output the requested tags and their contents.\n"
     "3. If you find no consensus or no contradictions, simply omit those specific tags.\n"
-    "4. Output 'N/A' for any missing URLs or Paper IDs.\n"
-    "5. An EARLIER IN THIS THREAD section may appear below. It is NOT evidence.\n"
+    "4. Output 'N/A' for any missing URLs or Paper IDs — but NEVER for a quote.\n"
+    "5. Every consensus_point and contradiction_point REQUIRES a real, verbatim\n"
+    "   quotation from BOTH the web sources AND the academic papers. If one side\n"
+    "   is silent on a matter, there is no finding — omit it entirely. Absence of\n"
+    "   evidence is NOT disagreement. Never write 'N/A', 'not addressed', 'the\n"
+    "   papers do not discuss this' or anything similar into a quote or claim\n"
+    "   field; a point you cannot quote both sides of does not get reported.\n"
+    "6. An EARLIER IN THIS THREAD section may appear below. It is NOT evidence.\n"
     "   It records conclusions you already drew, not sources. Never quote it, cite\n"
     "   it, or treat any finding in it as established fact. EVERY quote you output\n"
     "   must come from the RAW SURFACE WEB CLAIMS or RAW ACADEMIC PAPERS blocks.\n"
@@ -53,8 +59,8 @@ _DISCOVERY_RULES = (
     "Your objective is to thoroughly analyze the raw text blocks and output your findings using STRICT XML tags.\n\n"
     "RULES:\n"
     + _SHARED_RULES +
-    "6. <summary> is a 2-3 sentence overview of the general trend across both sides.\n"
-    "7. Report every substantive point of agreement and disagreement you can support\n"
+    "7. <summary> is a 2-3 sentence overview of the general trend across both sides.\n"
+    "8. Report every substantive point of agreement and disagreement you can support\n"
     "   with quotes from both sides.\n\n"
 )
 
@@ -67,18 +73,18 @@ _INTERROGATION_RULES = (
     "THREAD. The user is now asking one specific thing about them.\n\n"
     "RULES:\n"
     + _SHARED_RULES +
-    "6. <summary> must DIRECTLY ANSWER the user's question, using the corpus as evidence.\n"
+    "7. <summary> must DIRECTLY ANSWER the user's question, using the corpus as evidence.\n"
     "   Do not write a general overview of the topic — that has already been given.\n"
     "   Answer in the first sentence. Never restate the question, never narrate what is\n"
     "   being asked, and never refer to 'the user'. Write the answer, not a preamble.\n"
-    "7. Emit <consensus_point> or <contradiction_point> ONLY for findings that BOTH\n"
+    "8. Emit <consensus_point> or <contradiction_point> ONLY for findings that BOTH\n"
     "   (a) bear directly on this specific question, AND (b) were NOT already reported\n"
     "   in EARLIER IN THIS THREAD.\n"
-    "8. Restating an earlier finding in different words is a FAILURE. If the corpus\n"
+    "9. Restating an earlier finding in different words is a FAILURE. If the corpus\n"
     "   offers nothing new for this question, emit no such tags at all — a well-argued\n"
     "   <summary> on its own is a complete and correct answer here.\n"
-    "9. An earlier finding may be re-reported ONLY if this question puts genuinely new\n"
-    "   evidence behind it. In that case the <point> must state what is new.\n\n"
+    "10. An earlier finding may be re-reported ONLY if this question puts genuinely new\n"
+    "    evidence behind it. In that case the <point> must state what is new.\n\n"
 )
 
 
@@ -87,6 +93,26 @@ def extract_tag(text: str, tag: str) -> str:
     """Safely extracts text between XML tags using Regex."""
     match = re.search(f"<{tag}>(.*?)</{tag}>", text, re.DOTALL | re.IGNORECASE)
     return match.group(1).strip() if match else "N/A"
+
+
+# Phrases the model reaches for when one side has nothing to say. A finding
+# built on one of these is describing silence, not disagreement.
+_NON_QUOTES = ("n/a", "none", "not addressed", "not available", "no quote",
+               "not applicable", "no direct", "does not address", "-", "—")
+
+
+def _is_grounded(finding: dict) -> bool:
+    """A finding is only real if BOTH sides are backed by an actual quotation.
+
+    Source URLs and paper IDs may legitimately be missing; the quotes may not.
+    """
+    for key in ("web_quote", "paper_quote"):
+        quote = (finding.get(key) or "").strip()
+        if len(quote) < 12 or quote.lower().strip(".") in _NON_QUOTES:
+            return False
+        if any(quote.lower().startswith(p) for p in _NON_QUOTES if len(p) > 3):
+            return False
+    return True
 
 _SUMMARY_OPEN = re.compile(r"<summary>", re.IGNORECASE)
 
@@ -230,10 +256,26 @@ async def critic_two_pass_node(state: TarkaState) -> dict:
             "source_paper_id": extract_tag(block, "source_paper_id")
         })
 
-    print(f"\n[DEBUG - REGEX PARSER] Extracted {len(consensus_list)} Consensus and {len(contradiction_list)} Contradictions.")
-    
+    # 4. Drop findings that aren't grounded on both sides.
+    #
+    # The model will occasionally emit a contradiction whose paper side reads
+    # "Academic papers do not directly address this claim" with a quote of
+    # "N/A" — absence of evidence written up as opposition. That is the exact
+    # failure this project exists to prevent, and prompt rules alone don't
+    # stop it, so it's enforced here where the outcome is deterministic.
+    kept_consensus = [c for c in consensus_list if _is_grounded(c)]
+    kept_contradictions = [c for c in contradiction_list if _is_grounded(c)]
+
+    dropped = (len(consensus_list) - len(kept_consensus)) + \
+              (len(contradiction_list) - len(kept_contradictions))
+    if dropped:
+        print(f"[CRITIC] Dropped {dropped} ungrounded finding(s) — a quote was "
+              f"missing from one side.")
+
+    print(f"\n[DEBUG - REGEX PARSER] Extracted {len(kept_consensus)} Consensus and {len(kept_contradictions)} Contradictions.")
+
     return {
         "overall_summary": overall_summary,
-        "consensus": consensus_list,
-        "contradictions": contradiction_list
+        "consensus": kept_consensus,
+        "contradictions": kept_contradictions
     }
